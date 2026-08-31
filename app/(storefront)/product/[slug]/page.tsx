@@ -5,6 +5,9 @@ import { SITE_URL } from "@/config/site";
 import ProductDetailClient from "@/components/storefront/ProductDetailClient";
 import SignaturePiecesSection from "@/components/storefront/sections/SignaturePiecesSection";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 interface Props {
   params: Promise<{ slug: string }>;
 }

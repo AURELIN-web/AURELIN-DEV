@@ -9,6 +9,9 @@ export const metadata: Metadata = {
   description: "Essays, sartorial insights, styling guides, and brand stories from the AURELIN atelier.",
 };
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function JournalPage() {
   const posts = (await getPublishedJournalPosts(20)) as any[];
 

@@ -6,6 +6,9 @@ import { getJournalPostBySlug } from "@/lib/queries";
 import { formatDate } from "@/lib/utils/format";
 import { ChevronLeft } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 interface Props {
   params: Promise<{ slug: string }>;
 }

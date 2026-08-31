@@ -7,7 +7,8 @@ export const metadata: Metadata = {
   description: "Explore the latest additions to the AURELIN & CO. collection of quiet luxury menswear.",
 };
 
-export const revalidate = 1800;
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export default async function NewArrivalsPage() {
   const products = await getPublishedProducts({ newArrival: true, limit: 30 });

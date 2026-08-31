@@ -2,14 +2,10 @@ import { MetadataRoute } from "next";
 import { SITE_URL } from "@/config/site";
 import { getPublishedProducts, getActiveCategories, getActiveCollections, getPublishedJournalPosts } from "@/lib/queries";
 
-export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [products, categories, collections, posts] = await Promise.all([
-    getPublishedProducts({ limit: 1000 }),
-    getActiveCategories(),
-    getActiveCollections(),
-    getPublishedJournalPosts(100),
-  ]);
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticPages: MetadataRoute.Sitemap = [
     { url: SITE_URL, lastModified: new Date(), changeFrequency: "daily", priority: 1 },
     { url: `${SITE_URL}/shop`, lastModified: new Date(), changeFrequency: "daily", priority: 0.9 },
@@ -26,33 +22,44 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${SITE_URL}/care-guide`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.5 },
   ];
 
-  const productPages: MetadataRoute.Sitemap = products.map((p) => ({
-    url: `${SITE_URL}/product/${p.slug}`,
-    lastModified: new Date(p.updated_at),
-    changeFrequency: "weekly",
-    priority: 0.9,
-  }));
+  try {
+    const [products, categories, collections, posts] = await Promise.all([
+      getPublishedProducts({ limit: 1000 }),
+      getActiveCategories(),
+      getActiveCollections(),
+      getPublishedJournalPosts(100),
+    ]);
 
-  const categoryPages: MetadataRoute.Sitemap = categories.map((c) => ({
-    url: `${SITE_URL}/shop/${c.slug}`,
-    lastModified: new Date(c.updated_at),
-    changeFrequency: "weekly",
-    priority: 0.8,
-  }));
+    const productPages: MetadataRoute.Sitemap = products.map((p) => ({
+      url: `${SITE_URL}/product/${p.slug}`,
+      lastModified: new Date(p.updated_at),
+      changeFrequency: "weekly",
+      priority: 0.9,
+    }));
 
-  const collectionPages: MetadataRoute.Sitemap = collections.map((c) => ({
-    url: `${SITE_URL}/collections/${c.slug}`,
-    lastModified: new Date(c.updated_at),
-    changeFrequency: "weekly",
-    priority: 0.8,
-  }));
+    const categoryPages: MetadataRoute.Sitemap = categories.map((c) => ({
+      url: `${SITE_URL}/shop/${c.slug}`,
+      lastModified: new Date(c.updated_at),
+      changeFrequency: "weekly",
+      priority: 0.8,
+    }));
 
-  const journalPages: MetadataRoute.Sitemap = (posts as any[]).map((p) => ({
-    url: `${SITE_URL}/journal/${p.slug}`,
-    lastModified: new Date(p.updated_at),
-    changeFrequency: "monthly",
-    priority: 0.6,
-  }));
+    const collectionPages: MetadataRoute.Sitemap = collections.map((c) => ({
+      url: `${SITE_URL}/collections/${c.slug}`,
+      lastModified: new Date(c.updated_at),
+      changeFrequency: "weekly",
+      priority: 0.8,
+    }));
 
-  return [...staticPages, ...productPages, ...categoryPages, ...collectionPages, ...journalPages];
+    const journalPages: MetadataRoute.Sitemap = (posts as any[]).map((p) => ({
+      url: `${SITE_URL}/journal/${p.slug}`,
+      lastModified: new Date(p.updated_at),
+      changeFrequency: "monthly",
+      priority: 0.6,
+    }));
+
+    return [...staticPages, ...productPages, ...categoryPages, ...collectionPages, ...journalPages];
+  } catch {
+    return staticPages;
+  }
 }

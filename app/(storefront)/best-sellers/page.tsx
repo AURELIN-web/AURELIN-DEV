@@ -7,7 +7,8 @@ export const metadata: Metadata = {
   description: "Our most coveted linen shirts and tailored pieces, celebrated for craftsmanship and effortless drape.",
 };
 
-export const revalidate = 1800;
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export default async function BestSellersPage() {
   const products = await getPublishedProducts({ bestSeller: true, limit: 30 });

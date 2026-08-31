@@ -6,6 +6,9 @@ import ProductGrid from "@/components/storefront/ProductGrid";
 import ShopFilters from "@/components/storefront/ShopFilters";
 import type { Product } from "@/types/database";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 interface Props {
   params: Promise<{ slug: string }>;
 }
