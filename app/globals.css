@@ -1,0 +1,206 @@
+@import "tailwindcss";
+
+/* ================================================
+   AURELIN & CO. — Global Design System
+   ================================================ */
+
+@layer base {
+  :root {
+    --color-navy: #172744;
+    --color-deep-navy: #101C32;
+    --color-beige: #D8C8AF;
+    --color-ivory: #F8F6F0;
+    --color-champagne: #B9A77A;
+    --color-charcoal: #242424;
+    --color-white: #FFFFFF;
+
+    --font-heading: var(--font-cormorant);
+    --font-body: var(--font-inter);
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    font-family: var(--font-inter), system-ui, sans-serif;
+    background-color: var(--color-ivory);
+    color: var(--color-charcoal);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    line-height: 1.6;
+  }
+
+  /* Focus styles - accessible but refined */
+  :focus-visible {
+    outline: 2px solid var(--color-champagne);
+    outline-offset: 2px;
+  }
+
+  /* Scrollbar - minimal */
+  ::-webkit-scrollbar {
+    width: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--color-ivory);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-beige);
+    border-radius: 2px;
+  }
+
+  /* Selection */
+  ::selection {
+    background: var(--color-navy);
+    color: var(--color-ivory);
+  }
+
+  img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+}
+
+/* ================================================
+   TYPOGRAPHY UTILITIES
+   ================================================ */
+
+@layer utilities {
+  .font-heading {
+    font-family: var(--font-cormorant), Georgia, serif;
+  }
+
+  .font-body {
+    font-family: var(--font-inter), system-ui, sans-serif;
+  }
+
+  /* Letter spacing presets */
+  .tracking-luxury {
+    letter-spacing: 0.2em;
+  }
+
+  .tracking-wide-xl {
+    letter-spacing: 0.15em;
+  }
+
+  /* Editorial uppercase label */
+  .label-uppercase {
+    font-family: var(--font-inter), sans-serif;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+
+  /* Subtle underline animation */
+  .underline-hover {
+    position: relative;
+    display: inline-block;
+  }
+
+  .underline-hover::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    width: 0;
+    height: 1px;
+    background: currentColor;
+    transition: width 0.3s ease;
+  }
+
+  .underline-hover:hover::after {
+    width: 100%;
+  }
+
+  /* Fade in animation */
+  .animate-fade-in {
+    animation: fadeIn 0.5s ease forwards;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Slow scale on hover (images) */
+  .hover-scale {
+    transition: transform 0.7s ease;
+  }
+
+  .hover-scale:hover {
+    transform: scale(1.04);
+  }
+
+  /* Product image hover reveal */
+  .image-hover-reveal {
+    transition: opacity 0.4s ease;
+  }
+
+  /* Reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  /* Container max-widths */
+  .container-luxury {
+    width: 100%;
+    max-width: 1440px;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+
+  @media (min-width: 768px) {
+    .container-luxury {
+      padding-left: 2.5rem;
+      padding-right: 2.5rem;
+    }
+  }
+
+  @media (min-width: 1280px) {
+    .container-luxury {
+      padding-left: 4rem;
+      padding-right: 4rem;
+    }
+  }
+}
+
+/* ================================================
+   TAILWIND CSS THEME EXTENSION
+   ================================================ */
+
+@theme {
+  --color-navy: #172744;
+  --color-deep-navy: #101C32;
+  --color-beige: #D8C8AF;
+  --color-ivory: #F8F6F0;
+  --color-champagne: #B9A77A;
+  --color-charcoal: #242424;
+
+  --font-cormorant: "Cormorant Garamond", Georgia, serif;
+  --font-inter: "Inter", system-ui, sans-serif;
+
+  --ease-luxury: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
