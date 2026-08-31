@@ -15,21 +15,25 @@ export async function middleware(request: NextRequest) {
   }
 
   // Handle standard customer sessions
-  const { supabase, supabaseResponse } = createClient(request);
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  try {
+    const { supabase, supabaseResponse } = createClient(request);
+    const authClient = supabase.auth as any;
+    const authResult = typeof authClient?.getUser === "function" ? await authClient.getUser() : null;
+    const user = authResult?.data?.user;
 
-  // Protect customer account routes
-  if (pathname.startsWith("/account") || pathname.startsWith("/wishlist") || pathname.startsWith("/checkout")) {
-    if (!user) {
-      return NextResponse.redirect(
-        new URL(`/login?next=${encodeURIComponent(pathname)}`, request.url)
-      );
+    // Protect customer account routes
+    if (pathname.startsWith("/account") || pathname.startsWith("/wishlist") || pathname.startsWith("/checkout")) {
+      if (!user) {
+        return NextResponse.redirect(
+          new URL(`/login?next=${encodeURIComponent(pathname)}`, request.url)
+        );
+      }
     }
-  }
 
-  return supabaseResponse;
+    return supabaseResponse;
+  } catch {
+    return NextResponse.next();
+  }
 }
 
 export const config = {
