@@ -4,6 +4,9 @@ export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://aurelinco.c
 export const SITE_DESCRIPTION =
   "Premium menswear crafted for the modern gentleman. Discover AURELIN & CO.'s collection of refined linen shirts, tailored essentials and timeless pieces.";
 
+export const DEFAULT_WHATSAPP_NUMBER = process.env.WHATSAPP_NUMBER || "919645032855";
+export const DEFAULT_WHATSAPP_DISPLAY = "+91 96450 32855";
+
 export const BRAND_COLORS = {
   navy: "#172744",
   deepNavy: "#101C32",

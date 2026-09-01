@@ -4,10 +4,11 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/contexts/CartContext";
 import { formatPrice } from "@/lib/utils/format";
+import { buildWhatsAppOrderUrl } from "@/lib/utils/whatsapp";
 import { createClient } from "@/utils/supabase/client";
 import { toast } from "sonner";
 import Image from "next/image";
-import { ArrowRight, Lock } from "lucide-react";
+import { ArrowRight, Lock, MessageCircle, CheckCircle2 } from "lucide-react";
 import type { ShippingAddress } from "@/types/database";
 
 interface FormState {
@@ -39,8 +40,9 @@ const defaultForm: FormState = {
 export default function CheckoutPage() {
   const { items, subtotal, clearCart } = useCart();
   const [form, setForm] = useState<FormState>(defaultForm);
-  const [step, setStep] = useState<"details" | "review" | "confirmed">("details");
+  const [step, setStep] = useState<"details" | "confirmed">("details");
   const [orderNumber, setOrderNumber] = useState("");
+  const [whatsappUrl, setWhatsappUrl] = useState("");
   const [placing, setPlacing] = useState(false);
   const router = useRouter();
 
@@ -55,7 +57,7 @@ export default function CheckoutPage() {
 
   const handlePlaceOrder = async () => {
     if (!form.full_name || !form.email || !form.phone || !form.address_line1 || !form.city || !form.postal_code) {
-      toast.error("Please fill all required fields");
+      toast.error("Please fill all required fields marked with *");
       return;
     }
     setPlacing(true);
@@ -74,99 +76,143 @@ export default function CheckoutPage() {
 
     const orderNum = `AUR-${Date.now().toString().slice(-8)}`;
 
-    const { data: order, error } = await supabase
-      .from("orders")
-      .insert({
-        order_number: orderNum,
-        customer_email: form.email,
-        customer_name: form.full_name,
-        customer_phone: form.phone,
-        shipping_address: shippingAddress,
+    try {
+      const { data: order, error } = await supabase
+        .from("orders")
+        .insert({
+          order_number: orderNum,
+          customer_email: form.email,
+          customer_name: form.full_name,
+          customer_phone: form.phone,
+          shipping_address: shippingAddress,
+          subtotal,
+          shipping_amount: 0,
+          discount_amount: 0,
+          total: subtotal,
+          payment_status: "pending",
+          order_status: "pending",
+          notes: form.notes || null,
+        })
+        .select("id")
+        .single();
+
+      if (error || !order) {
+        toast.error("Failed to place order. Please try again.");
+        setPlacing(false);
+        return;
+      }
+
+      // Insert order items
+      await supabase.from("order_items").insert(
+        items.map((item) => ({
+          order_id: order.id,
+          product_id: item.productId,
+          variant_id: item.variantId,
+          product_name: item.name,
+          variant_info: { colour: item.colour, size: item.size },
+          quantity: item.quantity,
+          unit_price: item.price,
+          total_price: item.price * item.quantity,
+        }))
+      );
+
+      // Build structured WhatsApp order URL
+      const waUrl = buildWhatsAppOrderUrl({
+        whatsappNumber: "919645032855",
+        orderNumber: orderNum,
+        customer: {
+          fullName: form.full_name,
+          phone: form.phone,
+          email: form.email,
+          addressLine1: form.address_line1,
+          addressLine2: form.address_line2,
+          city: form.city,
+          state: form.state,
+          postalCode: form.postal_code,
+          country: form.country,
+          notes: form.notes,
+        },
+        items: items.map((i) => ({
+          name: i.name,
+          colour: i.colour,
+          size: i.size,
+          quantity: i.quantity,
+          price: i.price,
+        })),
         subtotal,
-        shipping_amount: 0,
-        discount_amount: 0,
         total: subtotal,
-        payment_status: "pending",
-        order_status: "pending",
-        notes: form.notes || null,
-      })
-      .select("id")
-      .single();
+      });
 
-    if (error || !order) {
-      toast.error("Failed to place order. Please try again.");
+      setOrderNumber(orderNum);
+      setWhatsappUrl(waUrl);
+      clearCart();
+      setStep("confirmed");
       setPlacing(false);
-      return;
+
+      // Automatically redirect/open WhatsApp
+      window.open(waUrl, "_blank", "noopener,noreferrer");
+    } catch {
+      toast.error("An unexpected error occurred. Please try again.");
+      setPlacing(false);
     }
-
-    // Insert order items
-    await supabase.from("order_items").insert(
-      items.map((item) => ({
-        order_id: order.id,
-        product_id: item.productId,
-        variant_id: item.variantId,
-        product_name: item.name,
-        variant_info: { colour: item.colour, size: item.size },
-        quantity: item.quantity,
-        unit_price: item.price,
-        total_price: item.price * item.quantity,
-      }))
-    );
-
-    setOrderNumber(orderNum);
-    clearCart();
-    setStep("confirmed");
-    setPlacing(false);
   };
 
   const inputStyle = {
     fontFamily: "var(--font-inter)",
-    fontSize: "0.9375rem",
-    color: "#242424",
+    fontSize: "0.875rem",
+    color: "#172744",
     borderColor: "#D8C8AF",
   };
 
   const labelStyle = {
     fontFamily: "var(--font-inter)",
-    fontSize: "0.5625rem",
+    fontSize: "0.625rem",
     letterSpacing: "0.16em",
     textTransform: "uppercase" as const,
     color: "#172744",
-    opacity: 0.6,
+    fontWeight: 600,
   };
 
   if (step === "confirmed") {
     return (
-      <div className="container-luxury py-24 text-center">
-        <div className="max-w-sm mx-auto">
-          <div className="w-12 h-px mx-auto mb-8" style={{ backgroundColor: "#B9A77A" }} />
+      <div className="container-luxury py-16 md:py-24 text-center">
+        <div className="max-w-md mx-auto bg-white border border-[#D8C8AF] p-8 md:p-12 rounded-xs shadow-sm">
+          <CheckCircle2 size={44} className="mx-auto text-emerald-600 mb-4" />
+          <p
+            className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#B9A77A] mb-1"
+            style={{ fontFamily: "var(--font-inter)" }}
+          >
+            ORDER PLACED SUCCESSFULLY
+          </p>
           <h1
-            className="mb-4"
+            className="mb-3"
             style={{ fontFamily: "var(--font-cormorant)", fontSize: "2.25rem", fontWeight: 400, color: "#172744" }}
           >
-            Order Confirmed
+            Thank you, {form.full_name.split(" ")[0]}
           </h1>
-          <p className="mb-2" style={{ fontFamily: "var(--font-inter)", fontSize: "0.9375rem", color: "#242424", opacity: 0.7 }}>
-            Thank you, {form.full_name.split(" ")[0]}.
+          <p className="mb-2 text-xs text-charcoal/80" style={{ fontFamily: "var(--font-inter)" }}>
+            Your bespoke order reference is <strong className="text-[#172744] font-semibold">{orderNumber}</strong>.
           </p>
-          <p className="mb-8 opacity-50" style={{ fontFamily: "var(--font-inter)", fontSize: "0.875rem" }}>
-            Your order <strong>{orderNumber}</strong> has been placed. We will be in touch shortly.
+          <p className="mb-8 text-xs text-charcoal/60 leading-relaxed" style={{ fontFamily: "var(--font-inter)" }}>
+            We have prepared your order details and delivery address. Click below to continue on WhatsApp with our concierge to confirm payment and tailoring.
           </p>
+
           <a
-            href={`https://wa.me/919999999999?text=Hello%2C%20I%20just%20placed%20order%20${orderNumber}%20and%20would%20like%20to%20confirm.`}
+            href={whatsappUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="block w-full py-4 mb-3 transition-opacity hover:opacity-80"
-            style={{ backgroundColor: "#172744", color: "#F8F6F0", fontFamily: "var(--font-inter)", fontSize: "0.6875rem", letterSpacing: "0.18em", textTransform: "uppercase" }}
+            className="flex items-center justify-center gap-2.5 w-full py-4 mb-3 bg-[#172744] hover:bg-[#101C32] text-[#F8F6F0] transition-colors rounded-xs shadow-md"
+            style={{ fontFamily: "var(--font-inter)", fontSize: "0.75rem", letterSpacing: "0.18em", textTransform: "uppercase", fontWeight: 600 }}
           >
-            CONFIRM VIA WHATSAPP
+            <MessageCircle size={16} /> Open WhatsApp Order (+91 96450 32855)
           </a>
+
           <button
             onClick={() => router.push("/")}
-            className="block w-full py-4 border transition-colors hover:border-navy"
-            style={{ borderColor: "#D8C8AF", fontFamily: "var(--font-inter)", fontSize: "0.6875rem", letterSpacing: "0.14em", textTransform: "uppercase" }}
+            className="block w-full py-3.5 border border-[#D8C8AF] hover:border-[#172744] text-[#172744] text-xs font-semibold uppercase tracking-wider rounded-xs transition-colors"
+            style={{ fontFamily: "var(--font-inter)" }}
           >
-            CONTINUE SHOPPING
+            Continue Shopping
           </button>
         </div>
       </div>
@@ -174,143 +220,234 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div className="container-luxury py-12 md:py-16">
-      <h1
-        className="mb-10"
-        style={{ fontFamily: "var(--font-cormorant)", fontSize: "clamp(1.75rem, 3vw, 2.5rem)", fontWeight: 400, color: "#172744" }}
-      >
-        Checkout
-      </h1>
+    <div className="container-luxury py-10 md:py-16">
+      <div className="border-b border-[#D8C8AF40] pb-6 mb-10">
+        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#B9A77A] mb-1">
+          AURELIN & CO. MAISON
+        </p>
+        <h1
+          style={{ fontFamily: "var(--font-cormorant)", fontSize: "clamp(2rem, 3.5vw, 2.75rem)", fontWeight: 400, color: "#172744" }}
+        >
+          Bespoke Checkout
+        </h1>
+        <p className="text-xs text-charcoal/60 mt-1">
+          Enter your delivery details below to place your order directly via WhatsApp concierge.
+        </p>
+      </div>
 
-      <div className="flex flex-col lg:flex-row gap-12 lg:gap-16">
+      <div className="flex flex-col lg:flex-row gap-10 lg:gap-14 items-start">
         {/* Left: Form */}
-        <div className="flex-1 space-y-8">
+        <div className="flex-1 w-full space-y-8">
           {/* Contact Details */}
-          <div>
+          <div className="bg-white border border-[#D8C8AF] p-6 md:p-8 rounded-xs space-y-5 shadow-2xs">
             <h2
-              className="mb-5"
-              style={{ fontFamily: "var(--font-inter)", fontSize: "0.6875rem", letterSpacing: "0.18em", textTransform: "uppercase", color: "#172744", fontWeight: 600 }}
+              className="text-xs font-bold uppercase tracking-[0.18em] text-[#172744] pb-3 border-b border-[#D8C8AF30]"
+              style={{ fontFamily: "var(--font-inter)" }}
             >
-              CONTACT DETAILS
+              1. Contact Information
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
                 <label className="block mb-1.5" style={labelStyle}>Full Name *</label>
-                <input type="text" value={form.full_name} onChange={(e) => update("full_name", e.target.value)} required className="w-full px-4 py-3 border outline-none bg-transparent" style={inputStyle} />
+                <input
+                  type="text"
+                  placeholder="e.g. Rahul Sharma"
+                  value={form.full_name}
+                  onChange={(e) => update("full_name", e.target.value)}
+                  required
+                  className="w-full px-4 py-3 border rounded-xs outline-none bg-[#F8F6F0]/30 focus:bg-white focus:border-[#172744] transition-colors"
+                  style={inputStyle}
+                />
               </div>
               <div>
-                <label className="block mb-1.5" style={labelStyle}>Email *</label>
-                <input type="email" value={form.email} onChange={(e) => update("email", e.target.value)} required className="w-full px-4 py-3 border outline-none bg-transparent" style={inputStyle} />
+                <label className="block mb-1.5" style={labelStyle}>Email Address *</label>
+                <input
+                  type="email"
+                  placeholder="rahul@example.com"
+                  value={form.email}
+                  onChange={(e) => update("email", e.target.value)}
+                  required
+                  className="w-full px-4 py-3 border rounded-xs outline-none bg-[#F8F6F0]/30 focus:bg-white focus:border-[#172744] transition-colors"
+                  style={inputStyle}
+                />
               </div>
               <div>
-                <label className="block mb-1.5" style={labelStyle}>Phone *</label>
-                <input type="tel" value={form.phone} onChange={(e) => update("phone", e.target.value)} required className="w-full px-4 py-3 border outline-none bg-transparent" style={inputStyle} />
+                <label className="block mb-1.5" style={labelStyle}>Phone / WhatsApp Number *</label>
+                <input
+                  type="tel"
+                  placeholder="+91 98765 43210"
+                  value={form.phone}
+                  onChange={(e) => update("phone", e.target.value)}
+                  required
+                  className="w-full px-4 py-3 border rounded-xs outline-none bg-[#F8F6F0]/30 focus:bg-white focus:border-[#172744] transition-colors"
+                  style={inputStyle}
+                />
               </div>
             </div>
           </div>
 
           {/* Shipping Address */}
-          <div>
+          <div className="bg-white border border-[#D8C8AF] p-6 md:p-8 rounded-xs space-y-5 shadow-2xs">
             <h2
-              className="mb-5"
-              style={{ fontFamily: "var(--font-inter)", fontSize: "0.6875rem", letterSpacing: "0.18em", textTransform: "uppercase", color: "#172744", fontWeight: 600 }}
+              className="text-xs font-bold uppercase tracking-[0.18em] text-[#172744] pb-3 border-b border-[#D8C8AF30]"
+              style={{ fontFamily: "var(--font-inter)" }}
             >
-              SHIPPING ADDRESS
+              2. Delivery Address
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
-                <label className="block mb-1.5" style={labelStyle}>Address Line 1 *</label>
-                <input type="text" value={form.address_line1} onChange={(e) => update("address_line1", e.target.value)} required className="w-full px-4 py-3 border outline-none bg-transparent" style={inputStyle} />
+                <label className="block mb-1.5" style={labelStyle}>Street Address / Flat / Villa *</label>
+                <input
+                  type="text"
+                  placeholder="Apartment 4B, Heritage Enclave, MG Road"
+                  value={form.address_line1}
+                  onChange={(e) => update("address_line1", e.target.value)}
+                  required
+                  className="w-full px-4 py-3 border rounded-xs outline-none bg-[#F8F6F0]/30 focus:bg-white focus:border-[#172744] transition-colors"
+                  style={inputStyle}
+                />
               </div>
               <div className="md:col-span-2">
-                <label className="block mb-1.5" style={labelStyle}>Address Line 2</label>
-                <input type="text" value={form.address_line2} onChange={(e) => update("address_line2", e.target.value)} className="w-full px-4 py-3 border outline-none bg-transparent" style={inputStyle} />
+                <label className="block mb-1.5" style={labelStyle}>Landmark / Area (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="Near Central Mall"
+                  value={form.address_line2}
+                  onChange={(e) => update("address_line2", e.target.value)}
+                  className="w-full px-4 py-3 border rounded-xs outline-none bg-[#F8F6F0]/30 focus:bg-white focus:border-[#172744] transition-colors"
+                  style={inputStyle}
+                />
               </div>
               <div>
                 <label className="block mb-1.5" style={labelStyle}>City *</label>
-                <input type="text" value={form.city} onChange={(e) => update("city", e.target.value)} required className="w-full px-4 py-3 border outline-none bg-transparent" style={inputStyle} />
+                <input
+                  type="text"
+                  placeholder="Bengaluru"
+                  value={form.city}
+                  onChange={(e) => update("city", e.target.value)}
+                  required
+                  className="w-full px-4 py-3 border rounded-xs outline-none bg-[#F8F6F0]/30 focus:bg-white focus:border-[#172744] transition-colors"
+                  style={inputStyle}
+                />
               </div>
               <div>
                 <label className="block mb-1.5" style={labelStyle}>State</label>
-                <input type="text" value={form.state} onChange={(e) => update("state", e.target.value)} className="w-full px-4 py-3 border outline-none bg-transparent" style={inputStyle} />
+                <input
+                  type="text"
+                  placeholder="Karnataka"
+                  value={form.state}
+                  onChange={(e) => update("state", e.target.value)}
+                  className="w-full px-4 py-3 border rounded-xs outline-none bg-[#F8F6F0]/30 focus:bg-white focus:border-[#172744] transition-colors"
+                  style={inputStyle}
+                />
               </div>
               <div>
                 <label className="block mb-1.5" style={labelStyle}>PIN Code *</label>
-                <input type="text" value={form.postal_code} onChange={(e) => update("postal_code", e.target.value)} required className="w-full px-4 py-3 border outline-none bg-transparent" style={inputStyle} />
+                <input
+                  type="text"
+                  placeholder="560001"
+                  value={form.postal_code}
+                  onChange={(e) => update("postal_code", e.target.value)}
+                  required
+                  className="w-full px-4 py-3 border rounded-xs outline-none bg-[#F8F6F0]/30 focus:bg-white focus:border-[#172744] transition-colors"
+                  style={inputStyle}
+                />
               </div>
               <div>
                 <label className="block mb-1.5" style={labelStyle}>Country</label>
-                <input type="text" value={form.country} onChange={(e) => update("country", e.target.value)} className="w-full px-4 py-3 border outline-none bg-transparent" style={inputStyle} />
+                <input
+                  type="text"
+                  value={form.country}
+                  onChange={(e) => update("country", e.target.value)}
+                  className="w-full px-4 py-3 border rounded-xs outline-none bg-[#F8F6F0]/30 focus:bg-white focus:border-[#172744] transition-colors"
+                  style={inputStyle}
+                />
               </div>
               <div className="md:col-span-2">
-                <label className="block mb-1.5" style={labelStyle}>Order Notes (optional)</label>
-                <textarea value={form.notes} onChange={(e) => update("notes", e.target.value)} rows={3} className="w-full px-4 py-3 border outline-none bg-transparent resize-none" style={inputStyle} />
+                <label className="block mb-1.5" style={labelStyle}>Tailoring or Delivery Notes (Optional)</label>
+                <textarea
+                  placeholder="Any custom fit preferences or delivery timing notes..."
+                  value={form.notes}
+                  onChange={(e) => update("notes", e.target.value)}
+                  rows={2}
+                  className="w-full px-4 py-3 border rounded-xs outline-none bg-[#F8F6F0]/30 focus:bg-white focus:border-[#172744] transition-colors resize-none"
+                  style={inputStyle}
+                />
               </div>
             </div>
           </div>
 
-          {/* Payment Note */}
-          <div
-            className="flex items-center gap-3 p-4"
-            style={{ backgroundColor: "#172744", color: "#D8C8AF" }}
-          >
-            <Lock size={14} />
-            <p style={{ fontFamily: "var(--font-inter)", fontSize: "0.8125rem", fontWeight: 300, lineHeight: 1.6 }}>
-              Payment is collected via bank transfer or UPI after order confirmation. We will contact you via WhatsApp with payment details.
+          {/* Concierge Note */}
+          <div className="flex items-center gap-3.5 p-4 bg-[#172744] text-[#F8F6F0] rounded-xs shadow-xs">
+            <Lock size={16} className="text-[#B9A77A] flex-shrink-0" />
+            <p className="text-xs font-light leading-relaxed">
+              Upon placing this order, your details and garment selections will be sent directly to our WhatsApp Concierge (<strong>+91 96450 32855</strong>) for payment confirmation and tracking.
             </p>
           </div>
         </div>
 
         {/* Right: Order Summary */}
-        <div className="lg:w-80 flex-shrink-0">
-          <div style={{ backgroundColor: "#F0EDE8", padding: "1.5rem", border: "1px solid #D8C8AF30" }}>
+        <div className="lg:w-96 flex-shrink-0 w-full lg:sticky lg:top-24">
+          <div className="bg-white border border-[#D8C8AF] p-6 rounded-xs shadow-sm space-y-5">
             <h2
-              className="mb-5"
-              style={{ fontFamily: "var(--font-inter)", fontSize: "0.6875rem", letterSpacing: "0.18em", textTransform: "uppercase", color: "#172744", fontWeight: 600 }}
+              className="text-xs font-bold uppercase tracking-[0.18em] text-[#172744] pb-3 border-b border-[#D8C8AF30]"
+              style={{ fontFamily: "var(--font-inter)" }}
             >
-              YOUR ORDER
+              Order Summary ({items.length})
             </h2>
-            <ul className="space-y-3 mb-5">
+
+            <ul className="divide-y divide-[#D8C8AF20] max-h-72 overflow-y-auto space-y-3 pr-1">
               {items.map((item) => (
-                <li key={`${item.productId}-${item.variantId}`} className="flex gap-3">
-                  <div className="relative w-12 h-16 flex-shrink-0 overflow-hidden" style={{ backgroundColor: "#D8C8AF20" }}>
-                    {item.image && <Image src={item.image} alt={item.name} fill sizes="48px" className="object-cover" />}
+                <li key={`${item.productId}-${item.variantId}`} className="pt-3 first:pt-0 flex gap-3.5">
+                  <div className="relative w-14 h-18 bg-[#F8F6F0] rounded-xs overflow-hidden flex-shrink-0 border border-[#D8C8AF]/60">
+                    {item.image && (
+                      <Image src={item.image} alt={item.name} fill sizes="56px" className="object-cover" />
+                    )}
                   </div>
-                  <div className="flex-1">
-                    <p style={{ fontFamily: "var(--font-inter)", fontSize: "0.8125rem", color: "#172744" }}>{item.name}</p>
-                    <p className="opacity-50" style={{ fontFamily: "var(--font-inter)", fontSize: "0.75rem" }}>
-                      {[item.colour, item.size, `×${item.quantity}`].filter(Boolean).join(" / ")}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-[#172744] truncate">{item.name}</p>
+                    <p className="text-[11px] text-charcoal/60 mt-0.5">
+                      {[item.size ? `Size: ${item.size}` : null, item.colour ? `Colour: ${item.colour}` : null].filter(Boolean).join(" • ")}
+                    </p>
+                    <p className="text-[11px] text-charcoal/50 mt-0.5">
+                      Qty: {item.quantity} × {formatPrice(item.price)}
                     </p>
                   </div>
-                  <span style={{ fontFamily: "var(--font-inter)", fontSize: "0.875rem", color: "#172744" }}>
+                  <span className="text-xs font-semibold text-[#172744] flex-shrink-0">
                     {formatPrice(item.price * item.quantity)}
                   </span>
                 </li>
               ))}
             </ul>
 
-            <div className="border-t pt-4 space-y-2 mb-5" style={{ borderColor: "#D8C8AF40" }}>
-              <div className="flex justify-between">
-                <span className="opacity-60" style={{ fontFamily: "var(--font-inter)", fontSize: "0.875rem" }}>Subtotal</span>
-                <span style={{ fontFamily: "var(--font-inter)", fontSize: "0.875rem" }}>{formatPrice(subtotal)}</span>
+            <div className="border-t border-[#D8C8AF40] pt-4 space-y-2 text-xs">
+              <div className="flex justify-between text-charcoal/70">
+                <span>Subtotal</span>
+                <span className="font-medium text-[#172744]">{formatPrice(subtotal)}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="opacity-60" style={{ fontFamily: "var(--font-inter)", fontSize: "0.875rem" }}>Shipping</span>
-                <span className="opacity-40" style={{ fontFamily: "var(--font-inter)", fontSize: "0.875rem" }}>Complimentary</span>
+              <div className="flex justify-between text-charcoal/70">
+                <span>Shipping</span>
+                <span className="text-emerald-700 font-semibold">Complimentary</span>
               </div>
-              <div className="flex justify-between pt-2 border-t" style={{ borderColor: "#D8C8AF40" }}>
-                <span style={{ fontFamily: "var(--font-inter)", fontSize: "0.9375rem", fontWeight: 500, color: "#172744" }}>Total</span>
-                <span style={{ fontFamily: "var(--font-inter)", fontSize: "0.9375rem", fontWeight: 600, color: "#172744" }}>{formatPrice(subtotal)}</span>
+              <div className="flex justify-between pt-3 border-t border-[#D8C8AF40] text-sm font-semibold text-[#172744]">
+                <span>Total Amount</span>
+                <span>{formatPrice(subtotal)}</span>
               </div>
             </div>
 
             <button
+              type="button"
               onClick={handlePlaceOrder}
               disabled={placing}
-              className="flex items-center justify-center gap-2 w-full py-4 transition-opacity hover:opacity-90 disabled:opacity-50"
-              style={{ backgroundColor: "#172744", color: "#F8F6F0", fontFamily: "var(--font-inter)", fontSize: "0.6875rem", letterSpacing: "0.18em", textTransform: "uppercase" }}
+              className="w-full py-4 bg-[#172744] hover:bg-[#101C32] text-[#F8F6F0] flex items-center justify-center gap-2.5 text-xs font-semibold uppercase tracking-[0.18em] rounded-xs shadow-md transition-all disabled:opacity-50"
             >
-              {placing ? "PLACING ORDER..." : "PLACE ORDER"} <ArrowRight size={14} />
+              {placing ? (
+                "Processing Order..."
+              ) : (
+                <>
+                  <MessageCircle size={16} /> Place Order via WhatsApp <ArrowRight size={14} />
+                </>
+              )}
             </button>
           </div>
         </div>

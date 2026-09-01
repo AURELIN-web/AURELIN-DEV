@@ -13,7 +13,7 @@ interface Props {
 export default function Footer({
   description = "A modern menswear house shaped by timeless silhouettes, natural fabrics and the belief that true elegance is never excessive.",
   newsletterText = "Private access to new collections, stories and seasonal edits.",
-  whatsappNumber,
+  whatsappNumber = "919645032855",
 }: Props) {
   const year = new Date().getFullYear();
 

@@ -109,8 +109,9 @@ export default function ProductDetailClient({ product, whatsappSettings }: Props
     } catch { /* ignore */ }
 
     const url = buildWhatsAppUrl({
-      whatsappNumber: whatsappSettings?.number || "919999999999",
+      whatsappNumber: whatsappSettings?.number || "919645032855",
       productName: product.name,
+      price: displayPrice,
       colour: selectedColour || undefined,
       size: selectedSize || undefined,
       quantity,
