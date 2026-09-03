@@ -3,6 +3,7 @@ import { getSiteSettings } from "@/lib/queries";
 import Header from "@/components/storefront/Header";
 import Footer from "@/components/storefront/Footer";
 import AnnouncementBar from "@/components/storefront/AnnouncementBar";
+import PreIntro from "@/components/storefront/PreIntro";
 
 export default async function StorefrontLayout({
   children,
@@ -16,6 +17,7 @@ export default async function StorefrontLayout({
 
   return (
     <>
+      <PreIntro />
       <AnnouncementBar settings={settings.announcementBar} />
       <Header whatsappNumber={whatsappNumber} />
       <main className="min-h-screen">{children}</main>
