@@ -7,6 +7,7 @@ import { Plus, Save, Trash2, Upload, Image as ImageIcon } from "lucide-react";
 import { slugify } from "@/lib/utils/format";
 import type { Collection } from "@/types/database";
 import { uploadToCloudinary } from "@/lib/upload";
+import DeleteConfirmModal from "@/components/admin/DeleteConfirmModal";
 
 export default function AdminCollectionsPage() {
   const [collections, setCollections] = useState<Collection[]>([]);
@@ -22,6 +23,8 @@ export default function AdminCollectionsPage() {
   });
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [collectionToDelete, setCollectionToDelete] = useState<Collection | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const load = async () => {
     try {
@@ -91,19 +94,23 @@ export default function AdminCollectionsPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Delete this collection?")) return;
+  const confirmDeleteCollection = async () => {
+    if (!collectionToDelete) return;
+    setDeleting(true);
     try {
-      const res = await fetch(`/api/admin/collections?id=${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/admin/collections?id=${collectionToDelete.id}`, { method: "DELETE" });
       const json = await res.json();
       if (json.success) {
         toast.success("Collection deleted");
+        setCollectionToDelete(null);
         load();
       } else {
         toast.error(json.error || "Failed to delete");
       }
     } catch {
       toast.error("Failed to delete");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -258,8 +265,12 @@ export default function AdminCollectionsPage() {
                   <button onClick={() => handleEdit(col)} className="opacity-60 hover:opacity-100 text-xs tracking-wider uppercase text-navy font-semibold">
                     EDIT
                   </button>
-                  <button onClick={() => handleDelete(col.id)} className="opacity-30 hover:opacity-80 hover:text-red-500">
-                    <Trash2 size={13} />
+                  <button
+                    onClick={() => setCollectionToDelete(col)}
+                    className="opacity-30 hover:opacity-80 hover:text-red-500 p-1 transition-all"
+                    title="Delete Collection"
+                  >
+                    <Trash2 size={14} />
                   </button>
                 </div>
               </li>
@@ -267,6 +278,16 @@ export default function AdminCollectionsPage() {
           </ul>
         )}
       </div>
+
+      <DeleteConfirmModal
+        isOpen={!!collectionToDelete}
+        onClose={() => setCollectionToDelete(null)}
+        onConfirm={confirmDeleteCollection}
+        title="Delete Collection"
+        description="Are you sure you want to delete this collection? Curated lookbooks and categories linked to this collection will be updated."
+        itemName={collectionToDelete?.name}
+        isDeleting={deleting}
+      />
     </div>
   );
 }

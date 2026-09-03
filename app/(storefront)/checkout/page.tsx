@@ -1,15 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/contexts/CartContext";
 import { formatPrice } from "@/lib/utils/format";
 import { buildWhatsAppOrderUrl } from "@/lib/utils/whatsapp";
-import { createClient } from "@/utils/supabase/client";
+import { DEFAULT_WHATSAPP_DISPLAY } from "@/config/site";
+import { placeOrder, getWhatsAppSettingsAction } from "./actions";
 import { toast } from "sonner";
 import Image from "next/image";
 import { ArrowRight, Lock, MessageCircle, CheckCircle2 } from "lucide-react";
-import type { ShippingAddress } from "@/types/database";
+import type { ShippingAddress, WhatsAppSettings } from "@/types/database";
 
 interface FormState {
   full_name: string;
@@ -43,11 +44,23 @@ export default function CheckoutPage() {
   const [step, setStep] = useState<"details" | "confirmed">("details");
   const [orderNumber, setOrderNumber] = useState("");
   const [whatsappUrl, setWhatsappUrl] = useState("");
+  const [whatsappSettings, setWhatsappSettings] = useState<WhatsAppSettings | null>(null);
   const [placing, setPlacing] = useState(false);
   const router = useRouter();
 
+  useEffect(() => {
+    getWhatsAppSettingsAction().then((s) => {
+      if (s) setWhatsappSettings(s);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (items.length === 0 && step !== "confirmed") {
+      router.push("/cart");
+    }
+  }, [items.length, step, router]);
+
   if (items.length === 0 && step !== "confirmed") {
-    router.push("/cart");
     return null;
   }
 
@@ -61,7 +74,6 @@ export default function CheckoutPage() {
       return;
     }
     setPlacing(true);
-    const supabase = createClient();
 
     const shippingAddress: ShippingAddress = {
       full_name: form.full_name,
@@ -76,85 +88,71 @@ export default function CheckoutPage() {
 
     const orderNum = `AUR-${Date.now().toString().slice(-8)}`;
 
-    try {
-      const { data: order, error } = await supabase
-        .from("orders")
-        .insert({
-          order_number: orderNum,
-          customer_email: form.email,
-          customer_name: form.full_name,
-          customer_phone: form.phone,
-          shipping_address: shippingAddress,
-          subtotal,
-          shipping_amount: 0,
-          discount_amount: 0,
-          total: subtotal,
-          payment_status: "pending",
-          order_status: "pending",
-          notes: form.notes || null,
-        })
-        .select("id")
-        .single();
+    const result = await placeOrder({
+      orderNumber: orderNum,
+      customerEmail: form.email,
+      customerName: form.full_name,
+      customerPhone: form.phone,
+      shippingAddress,
+      subtotal,
+      notes: form.notes || null,
+      items: items.map((item) => ({
+        productId: item.productId,
+        variantId: item.variantId,
+        name: item.name,
+        colour: item.colour,
+        size: item.size,
+        quantity: item.quantity,
+        price: item.price,
+        image: item.image,
+      })),
+    });
 
-      if (error || !order) {
-        toast.error("Failed to place order. Please try again.");
-        setPlacing(false);
-        return;
-      }
-
-      // Insert order items
-      await supabase.from("order_items").insert(
-        items.map((item) => ({
-          order_id: order.id,
-          product_id: item.productId,
-          variant_id: item.variantId,
-          product_name: item.name,
-          variant_info: { colour: item.colour, size: item.size },
-          quantity: item.quantity,
-          unit_price: item.price,
-          total_price: item.price * item.quantity,
-        }))
-      );
-
-      // Build structured WhatsApp order URL
-      const waUrl = buildWhatsAppOrderUrl({
-        whatsappNumber: "919645032855",
-        orderNumber: orderNum,
-        customer: {
-          fullName: form.full_name,
-          phone: form.phone,
-          email: form.email,
-          addressLine1: form.address_line1,
-          addressLine2: form.address_line2,
-          city: form.city,
-          state: form.state,
-          postalCode: form.postal_code,
-          country: form.country,
-          notes: form.notes,
-        },
-        items: items.map((i) => ({
-          name: i.name,
-          colour: i.colour,
-          size: i.size,
-          quantity: i.quantity,
-          price: i.price,
-        })),
-        subtotal,
-        total: subtotal,
-      });
-
-      setOrderNumber(orderNum);
-      setWhatsappUrl(waUrl);
-      clearCart();
-      setStep("confirmed");
+    if (!result.success) {
+      console.error("[Checkout] placeOrder failed:", result.error);
+      toast.error("Failed to place order. Please try again.");
       setPlacing(false);
-
-      // Automatically redirect/open WhatsApp
-      window.open(waUrl, "_blank", "noopener,noreferrer");
-    } catch {
-      toast.error("An unexpected error occurred. Please try again.");
-      setPlacing(false);
+      return;
     }
+
+    // Build WhatsApp URL
+    const targetNumber = whatsappSettings?.number
+      ? `${whatsappSettings.country_code || "91"}${whatsappSettings.number}`.replace(/\D/g, "")
+      : undefined;
+
+    const waUrl = buildWhatsAppOrderUrl({
+      whatsappNumber: targetNumber,
+      orderNumber: orderNum,
+      customer: {
+        fullName: form.full_name,
+        phone: form.phone,
+        email: form.email,
+        addressLine1: form.address_line1,
+        addressLine2: form.address_line2,
+        city: form.city,
+        state: form.state,
+        postalCode: form.postal_code,
+        country: form.country,
+        notes: form.notes,
+      },
+      items: items.map((i) => ({
+        name: i.name,
+        colour: i.colour,
+        size: i.size,
+        quantity: i.quantity,
+        price: i.price,
+      })),
+      subtotal,
+      total: subtotal,
+    });
+
+    setOrderNumber(orderNum);
+    setWhatsappUrl(waUrl);
+    clearCart();
+    setStep("confirmed");
+    setPlacing(false);
+
+    window.open(waUrl, "_blank", "noopener,noreferrer");
   };
 
   const inputStyle = {
@@ -204,7 +202,7 @@ export default function CheckoutPage() {
             className="flex items-center justify-center gap-2.5 w-full py-4 mb-3 bg-[#172744] hover:bg-[#101C32] text-[#F8F6F0] transition-colors rounded-xs shadow-md"
             style={{ fontFamily: "var(--font-inter)", fontSize: "0.75rem", letterSpacing: "0.18em", textTransform: "uppercase", fontWeight: 600 }}
           >
-            <MessageCircle size={16} /> Open WhatsApp Order (+91 96450 32855)
+            <MessageCircle size={16} /> Open WhatsApp Order
           </a>
 
           <button
@@ -220,7 +218,7 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div className="container-luxury py-10 md:py-16">
+    <div className="container-luxury py-10 ">
       <div className="border-b border-[#D8C8AF40] pb-6 mb-10">
         <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#B9A77A] mb-1">
           AURELIN & CO. MAISON
@@ -381,7 +379,7 @@ export default function CheckoutPage() {
           <div className="flex items-center gap-3.5 p-4 bg-[#172744] text-[#F8F6F0] rounded-xs shadow-xs">
             <Lock size={16} className="text-[#B9A77A] flex-shrink-0" />
             <p className="text-xs font-light leading-relaxed">
-              Upon placing this order, your details and garment selections will be sent directly to our WhatsApp Concierge (<strong>+91 96450 32855</strong>) for payment confirmation and tracking.
+              Upon placing this order, your details and garment selections will be sent directly to our WhatsApp Concierge (<strong>{whatsappSettings?.number ? `+${whatsappSettings.country_code || "91"} ${whatsappSettings.number}` : DEFAULT_WHATSAPP_DISPLAY}</strong>) for payment confirmation and tracking.
             </p>
           </div>
         </div>

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/utils/supabase/admin";
+import { revalidateTag } from "next/cache";
 
 export async function GET() {
   try {
@@ -68,6 +69,9 @@ export async function POST(request: NextRequest) {
     }
 
     if (result.error) throw result.error;
+
+    // Bust the storefront cache so video/settings are live immediately
+    revalidateTag("hero-settings", "default");
 
     return NextResponse.json({ success: true, data: result.data });
   } catch (err: any) {

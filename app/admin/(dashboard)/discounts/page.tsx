@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Plus, Save, Trash2 } from "lucide-react";
 import { formatPrice } from "@/lib/utils/format";
 import type { Discount } from "@/types/database";
+import DeleteConfirmModal from "@/components/admin/DeleteConfirmModal";
 
 export default function AdminDiscountsPage() {
   const [discounts, setDiscounts] = useState<Discount[]>([]);
@@ -19,12 +20,27 @@ export default function AdminDiscountsPage() {
     is_active: true,
   });
   const [saving, setSaving] = useState(false);
+  const [discountToDelete, setDiscountToDelete] = useState<Discount | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const load = async () => {
-    const supabase = createClient();
-    const { data } = await supabase.from("discounts").select("*").order("created_at", { ascending: false });
-    setDiscounts((data as Discount[]) || []);
-    setLoading(false);
+    try {
+      const res = await fetch("/api/admin/discounts");
+      const json = await res.json();
+      if (json.success) {
+        setDiscounts((json.data as Discount[]) || []);
+      } else {
+        const supabase = createClient();
+        const { data } = await supabase.from("discounts").select("*").order("created_at", { ascending: false });
+        setDiscounts((data as Discount[]) || []);
+      }
+    } catch {
+      const supabase = createClient();
+      const { data } = await supabase.from("discounts").select("*").order("created_at", { ascending: false });
+      setDiscounts((data as Discount[]) || []);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -37,7 +53,6 @@ export default function AdminDiscountsPage() {
       return;
     }
     setSaving(true);
-    const supabase = createClient();
     const payload = {
       code: form.code.toUpperCase().trim(),
       type: form.type,
@@ -46,24 +61,48 @@ export default function AdminDiscountsPage() {
       is_active: form.is_active,
     };
 
-    const { error } = await supabase.from("discounts").insert(payload);
-    if (error) {
-      toast.error(error.message || "Failed to create discount");
-    } else {
-      toast.success("Discount code created");
-      setForm({ code: "", type: "percentage", value: "10", min_order_amount: "", is_active: true });
-      setShowForm(false);
-      load();
+    try {
+      const res = await fetch("/api/admin/discounts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+      if (json.success) {
+        toast.success("Discount code created");
+        setForm({ code: "", type: "percentage", value: "10", min_order_amount: "", is_active: true });
+        setShowForm(false);
+        load();
+      } else {
+        toast.error(json.error || "Failed to create discount");
+      }
+    } catch {
+      toast.error("Failed to create discount");
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Delete this discount code?")) return;
-    const supabase = createClient();
-    await supabase.from("discounts").delete().eq("id", id);
-    toast.success("Discount code deleted");
-    load();
+  const confirmDeleteDiscount = async () => {
+    if (!discountToDelete) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/admin/discounts?id=${discountToDelete.id}`, {
+        method: "DELETE",
+      });
+      const json = await res.json();
+      if (json.success) {
+        toast.success("Discount code deleted");
+        setDiscountToDelete(null);
+        load();
+      } else {
+        toast.error(json.error || "Failed to delete discount code");
+      }
+    } catch {
+      toast.error("Failed to delete discount code");
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const inputStyle = { fontFamily: "var(--font-inter)", fontSize: "0.9375rem", color: "#242424", borderColor: "#D8C8AF" };
@@ -192,7 +231,11 @@ export default function AdminDiscountsPage() {
                   <span className="px-2 py-0.5 rounded-full text-xs font-semibold tracking-wider uppercase bg-navy/10 text-navy">
                     {d.is_active ? "Active" : "Inactive"}
                   </span>
-                  <button onClick={() => handleDelete(d.id)} className="opacity-30 hover:opacity-80 hover:text-red-500">
+                  <button
+                    onClick={() => setDiscountToDelete(d)}
+                    className="opacity-30 hover:opacity-80 hover:text-red-500 p-1 transition-all"
+                    title="Delete Discount Code"
+                  >
                     <Trash2 size={14} />
                   </button>
                 </div>
@@ -201,6 +244,16 @@ export default function AdminDiscountsPage() {
           </ul>
         )}
       </div>
+
+      <DeleteConfirmModal
+        isOpen={!!discountToDelete}
+        onClose={() => setDiscountToDelete(null)}
+        onConfirm={confirmDeleteDiscount}
+        title="Delete Discount Code"
+        description="Are you sure you want to delete this discount code? Once deleted, customers will no longer be able to use it at checkout."
+        itemName={discountToDelete?.code}
+        isDeleting={deleting}
+      />
     </div>
   );
 }

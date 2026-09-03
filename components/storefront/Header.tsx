@@ -53,9 +53,9 @@ export default function Header({ whatsappNumber }: { whatsappNumber?: string }) 
   return (
     <>
       <header
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+        className={`sticky top-0 z-50 transition-all duration-300 ${
           isScrolled
-            ? "bg-ivory shadow-sm border-b border-beige/30"
+            ? "bg-ivory shadow-sm"
             : "bg-ivory"
         }`}
         style={{ backgroundColor: "#F8F6F0" }}
@@ -80,27 +80,28 @@ export default function Header({ whatsappNumber }: { whatsappNumber?: string }) 
                   {item.children && (
                     <ChevronDown
                       size={10}
-                      className={`transition-transform duration-200 ${
-                        activeDropdown === item.label ? "rotate-180" : ""
-                      }`}
+                      className={`transition-transform duration-200 ${activeDropdown === item.label ? "rotate-180" : ""
+                        }`}
                     />
                   )}
                 </Link>
 
                 {/* Dropdown */}
                 {item.children && activeDropdown === item.label && (
-                  <div className="absolute top-full left-0 mt-2 w-52 bg-ivory border border-beige/40 shadow-lg py-3 z-50">
-                    {item.children.map((child) => (
-                      <Link
-                        key={child.href}
-                        href={child.href}
-                        className="block px-5 py-2 label-uppercase text-charcoal hover:text-navy hover:bg-beige/10 transition-colors"
-                        style={{ fontSize: "0.625rem", letterSpacing: "0.14em" }}
-                        onClick={() => setActiveDropdown(null)}
-                      >
-                        {child.label}
-                      </Link>
-                    ))}
+                  <div className="absolute top-full left-0 pt-2 w-52 z-50">
+                    <div className="bg-ivory border border-beige/40 shadow-lg py-3">
+                      {item.children.map((child) => (
+                        <Link
+                          key={child.href}
+                          href={child.href}
+                          className="block px-5 py-2 label-uppercase text-charcoal hover:text-navy hover:bg-beige/10 transition-colors"
+                          style={{ fontSize: "0.625rem", letterSpacing: "0.14em" }}
+                          onClick={() => setActiveDropdown(null)}
+                        >
+                          {child.label}
+                        </Link>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -110,7 +111,7 @@ export default function Header({ whatsappNumber }: { whatsappNumber?: string }) 
           {/* Center Logo */}
           <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
             <Link href="/" aria-label="AURELIN & CO. — Home">
-              <AurelinLogo className="h-12" />
+              <AurelinLogo className="h-16" />
             </Link>
           </div>
 
@@ -194,8 +195,7 @@ export default function Header({ whatsappNumber }: { whatsappNumber?: string }) 
           </div>
         </div>
 
-        {/* Thin bottom border line */}
-        <div className="h-px bg-beige/30" />
+    
       </header>
 
       {/* Mobile Menu Overlay */}
@@ -281,8 +281,7 @@ export default function Header({ whatsappNumber }: { whatsappNumber?: string }) 
         </div>
       )}
 
-      {/* Spacer for fixed header */}
-      <div className="h-[72px] md:h-[73px]" />
+
 
       <CartDrawer />
       <SearchDialog isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />

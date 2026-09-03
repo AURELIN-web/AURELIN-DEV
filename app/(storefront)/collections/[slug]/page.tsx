@@ -63,7 +63,7 @@ export default async function CollectionPage({ params }: Props) {
       </div>
 
       {/* Products */}
-      <div className="container-luxury py-12 md:py-16">
+      <div className="container-luxury py-12 md:py-10">
         <ProductGrid products={products} columns={4} />
       </div>
     </div>

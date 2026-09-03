@@ -18,8 +18,8 @@ export default function AnnouncementBar({ settings }: Props) {
     <div
       className="relative flex items-center justify-center px-8 py-2.5 text-center"
       style={{
-        backgroundColor: settings.bg_color || "#172744",
-        color: settings.text_color || "#F8F6F0",
+        backgroundColor: "#172744",
+        color: "#F8F6F0",
       }}
     >
       <p className="label-uppercase" style={{ fontSize: "0.6875rem" }}>

@@ -67,11 +67,12 @@ export const FOOTER_LINKS = {
 
 export const ORDER_STATUSES = [
   "pending",
-  "confirmed",
   "processing",
-  "packed",
   "shipped",
   "delivered",
+  "completed",
+  "confirmed",
+  "packed",
   "cancelled",
   "returned",
 ] as const;

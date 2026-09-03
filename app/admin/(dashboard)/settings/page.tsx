@@ -105,43 +105,6 @@ export default function AdminSettingsPage() {
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block mb-1.5" style={labelStyle}>Background Color</label>
-            <div className="flex items-center gap-2">
-              <input
-                type="color"
-                value={announcement.bg_color}
-                onChange={(e) => setAnnouncement((a) => ({ ...a, bg_color: e.target.value }))}
-                className="w-8 h-8 border border-beige cursor-pointer"
-              />
-              <input
-                type="text"
-                value={announcement.bg_color}
-                onChange={(e) => setAnnouncement((a) => ({ ...a, bg_color: e.target.value }))}
-                className="flex-1 px-3 py-2 border border-beige outline-none bg-transparent text-xs"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block mb-1.5" style={labelStyle}>Text Color</label>
-            <div className="flex items-center gap-2">
-              <input
-                type="color"
-                value={announcement.text_color}
-                onChange={(e) => setAnnouncement((a) => ({ ...a, text_color: e.target.value }))}
-                className="w-8 h-8 border border-beige cursor-pointer"
-              />
-              <input
-                type="text"
-                value={announcement.text_color}
-                onChange={(e) => setAnnouncement((a) => ({ ...a, text_color: e.target.value }))}
-                className="flex-1 px-3 py-2 border border-beige outline-none bg-transparent text-xs"
-              />
-            </div>
-          </div>
-        </div>
 
         <label className="flex items-center gap-2 cursor-pointer pt-2">
           <input

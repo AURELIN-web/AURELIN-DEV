@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Upload, Trash2, Copy, Check } from "lucide-react";
 import { STORAGE_BUCKETS } from "@/config/site";
 import { uploadToCloudinary } from "@/lib/upload";
+import DeleteConfirmModal from "@/components/admin/DeleteConfirmModal";
 
 export default function AdminMediaPage() {
   const [selectedBucket, setSelectedBucket] = useState<string>("products");
@@ -13,6 +14,8 @@ export default function AdminMediaPage() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
+  const [mediaToDelete, setMediaToDelete] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const loadFiles = async () => {
     setLoading(true);
@@ -62,15 +65,23 @@ export default function AdminMediaPage() {
     setUploading(false);
   };
 
-  const handleDelete = async (name: string) => {
-    if (!confirm("Delete this asset?")) return;
-    const supabase = createClient();
-    const { error } = await supabase.storage.from(selectedBucket).remove([name]);
-    if (!error) {
-      toast.success("Asset deleted");
-      loadFiles();
-    } else {
+  const confirmDeleteMedia = async () => {
+    if (!mediaToDelete) return;
+    setDeleting(true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.storage.from(selectedBucket).remove([mediaToDelete]);
+      if (!error) {
+        toast.success("Asset deleted");
+        setMediaToDelete(null);
+        loadFiles();
+      } else {
+        toast.error("Failed to delete asset");
+      }
+    } catch {
       toast.error("Failed to delete asset");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -145,8 +156,8 @@ export default function AdminMediaPage() {
                   {copiedUrl === file.url ? <Check size={14} className="text-green-700" /> : <Copy size={14} />}
                 </button>
                 <button
-                  onClick={() => handleDelete(file.name)}
-                  title="Delete"
+                  onClick={() => setMediaToDelete(file.name)}
+                  title="Delete Asset"
                   className="p-2 bg-ivory text-red-600 hover:scale-110 transition-transform"
                 >
                   <Trash2 size={14} />
@@ -156,6 +167,16 @@ export default function AdminMediaPage() {
           ))}
         </div>
       )}
+
+      <DeleteConfirmModal
+        isOpen={!!mediaToDelete}
+        onClose={() => setMediaToDelete(null)}
+        onConfirm={confirmDeleteMedia}
+        title="Delete Media Asset"
+        description="Are you sure you want to permanently delete this asset from storage? Any product or site pages referencing this file directly may lose their image."
+        itemName={mediaToDelete || undefined}
+        isDeleting={deleting}
+      />
     </div>
   );
 }

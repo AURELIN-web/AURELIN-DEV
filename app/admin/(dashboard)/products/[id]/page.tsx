@@ -15,7 +15,8 @@ export default async function EditProductPage({ params }: Props) {
     .select(`
       *,
       product_variants (*),
-      product_images (*)
+      product_images (*),
+      product_categories (category_id)
     `)
     .eq("id", id)
     .single();
@@ -52,6 +53,7 @@ export default async function EditProductPage({ params }: Props) {
         is_featured: !!product.is_featured,
         is_new_arrival: !!product.is_new_arrival,
         is_best_seller: !!product.is_best_seller,
+        show_on_storefront: product.show_on_storefront ?? true,
         stock_quantity: product.stock_quantity ?? 0,
         low_stock_threshold: product.low_stock_threshold ?? 3,
         material: product.material || "",
@@ -62,6 +64,7 @@ export default async function EditProductPage({ params }: Props) {
         seo_description: product.seo_description || "",
         seo_keywords: product.seo_keywords || "",
         primary_image_url: product.primary_image_url || "",
+        category_id: product.product_categories?.[0]?.category_id || "",
         variants: product.product_variants || [],
         images: initialImages,
       }}

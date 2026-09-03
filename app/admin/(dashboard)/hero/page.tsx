@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { toast } from "sonner";
 import type { HeroSettings } from "@/types/database";
-import { Upload, Save, Film, Image as ImageIcon, Eye, Sparkles, Loader2 } from "lucide-react";
+import { Upload, Save, Film, Eye, Sparkles, Loader2 } from "lucide-react";
 import { uploadToCloudinary } from "@/lib/upload";
 
 export default function AdminHeroPage() {
@@ -18,8 +18,7 @@ export default function AdminHeroPage() {
   const [uploadingMobile, setUploadingMobile] = useState(false);
   const [mobileProgress, setMobileProgress] = useState<number | null>(null);
 
-  const [uploadingPoster, setUploadingPoster] = useState(false);
-  const [posterProgress, setPosterProgress] = useState<number | null>(null);
+
 
   useEffect(() => {
     const load = async () => {
@@ -73,33 +72,7 @@ export default function AdminHeroPage() {
     setProgress(null);
   };
 
-  const uploadPoster = async (file: File) => {
-    setUploadingPoster(true);
-    setPosterProgress(0);
 
-    const result = await uploadToCloudinary(file, "hero", (percent) => {
-      setPosterProgress(percent);
-    });
-
-    if (result.success && result.url) {
-      update("poster_image_url", result.url);
-
-      // Auto-persist immediately to Supabase through elevated API route
-      const updatedPayload = { ...hero, poster_image_url: result.url };
-      await fetch("/api/admin/hero", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updatedPayload),
-      });
-
-      toast.success("Poster image uploaded & saved live to storefront!");
-    } else {
-      toast.error(result.error || "Poster upload failed");
-    }
-
-    setUploadingPoster(false);
-    setPosterProgress(null);
-  };
 
   const handleSave = async () => {
     if (!hero) return;
@@ -183,7 +156,7 @@ export default function AdminHeroPage() {
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Desktop Video Card */}
           <div className="flex flex-col p-4 bg-[#F8F6F0] border border-[#D8C8AF]/60 rounded-sm">
             <span className={labelClass}>Desktop Video (MP4 / WebM)</span>
@@ -282,58 +255,10 @@ export default function AdminHeroPage() {
             />
           </div>
 
-          {/* Poster Fallback Image Card */}
-          <div className="flex flex-col p-4 bg-[#F8F6F0] border border-[#D8C8AF]/60 rounded-sm">
-            <span className={labelClass}>Poster / Fallback Image</span>
-            {hero.poster_image_url ? (
-              <div className="relative aspect-video w-full bg-black/10 mb-3 overflow-hidden rounded border border-[#D8C8AF]">
-                <img src={hero.poster_image_url} alt="Poster" className="w-full h-full object-cover" />
-              </div>
-            ) : (
-              <div className="aspect-video w-full bg-[#101C32]/5 mb-3 flex flex-col items-center justify-center text-charcoal/40 rounded border border-dashed border-[#D8C8AF]">
-                <ImageIcon size={24} className="mb-1 opacity-40" />
-                <span className="text-[10px] uppercase tracking-wider">No Poster Set</span>
-              </div>
-            )}
-
-            <label className="flex items-center justify-center gap-2 px-3 py-2.5 bg-white border border-[#172744] hover:bg-[#172744] hover:text-white transition-colors cursor-pointer text-xs font-medium uppercase tracking-wider text-[#172744] rounded-sm mb-3">
-              {uploadingPoster ? (
-                <>
-                  <Loader2 size={13} className="animate-spin" />
-                  <span>Uploading {posterProgress !== null ? `${posterProgress}%` : "..."}</span>
-                </>
-              ) : (
-                <>
-                  <Upload size={13} /> <span>Upload Poster Image</span>
-                </>
-              )}
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                disabled={uploadingPoster}
-                onChange={(e) => e.target.files?.[0] && uploadPoster(e.target.files[0])}
-              />
-            </label>
-
-            {posterProgress !== null && (
-              <div className="w-full bg-gray-200 h-1.5 rounded-full overflow-hidden mb-3">
-                <div className="bg-[#172744] h-full transition-all duration-300" style={{ width: `${posterProgress}%` }} />
-              </div>
-            )}
-
-            <input
-              type="text"
-              value={hero.poster_image_url || ""}
-              onChange={(e) => update("poster_image_url", e.target.value)}
-              placeholder="Or paste image URL..."
-              className={inputClass}
-            />
-          </div>
         </div>
 
-        {/* Video Playback & Overlay Settings */}
-        <div className="mt-8 pt-6 border-t border-[#D8C8AF40] grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-center">
+        {/* Video Playback Settings */}
+        <div className="mt-8 pt-6 border-t border-[#D8C8AF40] grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-center">
           {[
             { key: "autoplay" as const, label: "Autoplay Video" },
             { key: "loop" as const, label: "Infinite Loop" },
@@ -350,22 +275,6 @@ export default function AdminHeroPage() {
               <span className="text-xs font-medium text-[#242424]">{label}</span>
             </label>
           ))}
-
-          {/* Overlay slider */}
-          <div className="flex items-center gap-3">
-            <span className="text-xs font-medium text-[#172744] whitespace-nowrap">
-              Dark Overlay: {Math.round(hero.overlay_strength * 100)}%
-            </span>
-            <input
-              type="range"
-              min="0"
-              max="0.8"
-              step="0.05"
-              value={hero.overlay_strength}
-              onChange={(e) => update("overlay_strength", parseFloat(e.target.value))}
-              className="w-24 accent-[#172744]"
-            />
-          </div>
         </div>
       </section>
 

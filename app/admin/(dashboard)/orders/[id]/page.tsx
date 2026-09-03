@@ -1,9 +1,12 @@
 import { notFound } from "next/navigation";
-import { createClient } from "@/utils/supabase/server";
+import { createAdminClient } from "@/utils/supabase/admin";
 import { formatPrice, formatDate } from "@/lib/utils/format";
 import Link from "next/link";
 import OrderStatusSelector from "@/components/admin/OrderStatusSelector";
-import { ChevronLeft, MessageCircle } from "lucide-react";
+import { ChevronLeft, MessageCircle, Image as ImageIcon } from "lucide-react";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -11,7 +14,7 @@ interface Props {
 
 export default async function AdminOrderDetailPage({ params }: Props) {
   const { id } = await params;
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const { data: order } = await supabase
     .from("orders")
@@ -20,6 +23,22 @@ export default async function AdminOrderDetailPage({ params }: Props) {
     .single();
 
   if (!order) notFound();
+
+  // Fetch product images for all items
+  const productIds = Array.from(
+    new Set((order.order_items || []).map((item: any) => item.product_id).filter(Boolean))
+  );
+
+  let productMap: Record<string, any> = {};
+  if (productIds.length > 0) {
+    const { data: prods } = await supabase
+      .from("products")
+      .select("id, primary_image_url, name, slug")
+      .in("id", productIds);
+    (prods || []).forEach((p: any) => {
+      productMap[p.id] = p;
+    });
+  }
 
   const shipping = order.shipping_address as any;
 
@@ -69,29 +88,54 @@ export default async function AdminOrderDetailPage({ params }: Props) {
               ORDER ITEMS ({order.order_items?.length || 0})
             </h2>
             <div className="divide-y divide-beige/30">
-              {order.order_items?.map((item: any) => (
-                <div key={item.id} className="py-3 flex justify-between items-center">
-                  <div>
-                    <p className="font-medium text-navy text-sm" style={{ fontFamily: "var(--font-inter)" }}>
-                      {item.product_name}
-                    </p>
-                    {item.variant_info && (
-                      <p className="opacity-50 text-xs" style={{ fontFamily: "var(--font-inter)" }}>
-                        {Object.entries(item.variant_info)
-                          .filter(([, v]) => v)
-                          .map(([k, v]) => `${k}: ${v}`)
-                          .join(" / ")}
-                      </p>
-                    )}
-                    <p className="opacity-60 text-xs mt-1" style={{ fontFamily: "var(--font-inter)" }}>
-                      Qty: {item.quantity} × {formatPrice(item.unit_price)}
-                    </p>
+              {order.order_items?.map((item: any) => {
+                const imageUrl =
+                  item.variant_info?.image ||
+                  productMap[item.product_id]?.primary_image_url ||
+                  null;
+
+                return (
+                  <div key={item.id} className="py-3.5 flex justify-between items-center gap-4">
+                    <div className="flex items-center gap-3.5 min-w-0">
+                      {/* Product Image Thumbnail */}
+                      <div className="relative w-14 h-16 bg-[#172744]/5 rounded-sm overflow-hidden flex-shrink-0 border border-[#D8C8AF]/60">
+                        {imageUrl ? (
+                          <img
+                            src={imageUrl}
+                            alt={item.product_name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-charcoal/30">
+                            <ImageIcon size={18} />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="min-w-0">
+                        <p className="font-medium text-[#172744] text-sm leading-snug" style={{ fontFamily: "var(--font-inter)" }}>
+                          {item.product_name}
+                        </p>
+                        {item.variant_info && (
+                          <p className="opacity-60 text-xs mt-0.5" style={{ fontFamily: "var(--font-inter)" }}>
+                            {Object.entries(item.variant_info)
+                              .filter(([k, v]) => v && k !== "image")
+                              .map(([k, v]) => `${k}: ${v}`)
+                              .join(" / ")}
+                          </p>
+                        )}
+                        <p className="opacity-60 text-xs mt-1" style={{ fontFamily: "var(--font-inter)" }}>
+                          Qty: {item.quantity} × {formatPrice(item.unit_price)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <span className="font-semibold text-[#172744] text-sm flex-shrink-0" style={{ fontFamily: "var(--font-inter)" }}>
+                      {formatPrice(item.total_price)}
+                    </span>
                   </div>
-                  <span className="font-medium text-navy text-sm" style={{ fontFamily: "var(--font-inter)" }}>
-                    {formatPrice(item.total_price)}
-                  </span>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             <div className="border-t border-beige/40 pt-4 mt-4 space-y-2 text-sm" style={{ fontFamily: "var(--font-inter)" }}>

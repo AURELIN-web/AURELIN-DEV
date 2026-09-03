@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { createClient } from "@/utils/supabase/client";
 import { toast } from "sonner";
 import { Save, MessageCircle } from "lucide-react";
 import type { WhatsAppSettings } from "@/types/database";
@@ -19,12 +18,19 @@ export default function AdminWhatsAppPage() {
 
   useEffect(() => {
     const load = async () => {
-      const supabase = createClient();
-      const [{ data: settingRow }, { data: enquiryData }] = await Promise.all([
-        supabase.from("site_settings").select("value").eq("key", "whatsapp").single(),
-        supabase.from("whatsapp_enquiries").select("*").order("created_at", { ascending: false }).limit(20),
+      // Load settings via admin API (bypasses RLS)
+      const [settingsRes, supabase] = await Promise.all([
+        fetch("/api/admin/settings").then((r) => r.json()),
+        import("@/utils/supabase/client").then((m) => m.createClient()),
       ]);
-      if (settingRow?.value) setSettings(settingRow.value as WhatsAppSettings);
+      if (settingsRes.settings?.whatsapp) {
+        setSettings(settingsRes.settings.whatsapp as WhatsAppSettings);
+      }
+      const { data: enquiryData } = await supabase
+        .from("whatsapp_enquiries")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(20);
       setEnquiries(enquiryData || []);
       setLoading(false);
     };
@@ -33,12 +39,19 @@ export default function AdminWhatsAppPage() {
 
   const handleSave = async () => {
     setSaving(true);
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("site_settings")
-      .upsert({ key: "whatsapp", value: settings }, { onConflict: "key" });
-    if (error) toast.error("Failed to save");
-    else toast.success("WhatsApp settings saved");
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: "whatsapp", value: settings }),
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error || "Failed to save");
+      toast.success("WhatsApp settings saved");
+    } catch (err: any) {
+      console.error("[WhatsApp save error]", err);
+      toast.error(err.message || "Failed to save");
+    }
     setSaving(false);
   };
 

@@ -67,11 +67,20 @@ export async function DELETE(request: NextRequest) {
     if (!id) return NextResponse.json({ success: false, error: "ID required" }, { status: 400 });
 
     const supabase = createAdminClient();
+
+    // 1. Unlink child categories if any
+    await supabase.from("categories").update({ parent_id: null }).eq("parent_id", id);
+
+    // 2. Remove junction table associations if any
+    await supabase.from("product_categories").delete().eq("category_id", id);
+
+    // 3. Delete category
     const { error } = await supabase.from("categories").delete().eq("id", id);
     if (error) throw error;
 
     return NextResponse.json({ success: true });
   } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    console.error("[Categories DELETE error]:", err);
+    return NextResponse.json({ success: false, error: err.message || "Failed to delete category" }, { status: 500 });
   }
 }

@@ -26,8 +26,7 @@ export const metadata: Metadata = {
   },
 };
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+export const revalidate = 60;
 
 export default async function HomePage() {
   const [heroSettings, collections, sections, featuredProducts, bestSellers] =
@@ -39,8 +38,14 @@ export default async function HomePage() {
       getPublishedProducts({ bestSeller: true, limit: 4 }),
     ]);
 
+  const fallbackProducts = await getPublishedProducts({ limit: 4 });
+
   const signatureProducts =
-    featuredProducts.length > 0 ? featuredProducts : bestSellers;
+    featuredProducts.length > 0
+      ? featuredProducts
+      : bestSellers.length > 0
+        ? bestSellers
+        : fallbackProducts;
 
   // Map sections config
   const collectionSection = sections.find((s) => s.section_type === "collection_grid");

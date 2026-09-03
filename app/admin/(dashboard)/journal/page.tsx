@@ -7,6 +7,7 @@ import { Plus, Save, Trash2, Upload } from "lucide-react";
 import { slugify } from "@/lib/utils/format";
 import type { JournalPost } from "@/types/database";
 import { uploadToCloudinary } from "@/lib/upload";
+import DeleteConfirmModal from "@/components/admin/DeleteConfirmModal";
 
 export default function AdminJournalPage() {
   const [posts, setPosts] = useState<JournalPost[]>([]);
@@ -24,6 +25,8 @@ export default function AdminJournalPage() {
   });
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [articleToDelete, setArticleToDelete] = useState<JournalPost | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const load = async () => {
     try {
@@ -94,19 +97,23 @@ export default function AdminJournalPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Delete this article?")) return;
+  const confirmDeleteArticle = async () => {
+    if (!articleToDelete) return;
+    setDeleting(true);
     try {
-      const res = await fetch(`/api/admin/journal?id=${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/admin/journal?id=${articleToDelete.id}`, { method: "DELETE" });
       const json = await res.json();
       if (json.success) {
         toast.success("Article deleted");
+        setArticleToDelete(null);
         load();
       } else {
         toast.error(json.error || "Failed to delete");
       }
     } catch {
       toast.error("Failed to delete");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -286,8 +293,12 @@ export default function AdminJournalPage() {
                   <button onClick={() => handleEdit(post)} className="opacity-60 hover:opacity-100 text-xs tracking-wider uppercase text-navy font-semibold">
                     EDIT
                   </button>
-                  <button onClick={() => handleDelete(post.id)} className="opacity-30 hover:opacity-80 hover:text-red-500">
-                    <Trash2 size={13} />
+                  <button
+                    onClick={() => setArticleToDelete(post)}
+                    className="opacity-30 hover:opacity-80 hover:text-red-500 p-1 transition-all"
+                    title="Delete Article"
+                  >
+                    <Trash2 size={14} />
                   </button>
                 </div>
               </li>
@@ -295,6 +306,16 @@ export default function AdminJournalPage() {
           </ul>
         )}
       </div>
+
+      <DeleteConfirmModal
+        isOpen={!!articleToDelete}
+        onClose={() => setArticleToDelete(null)}
+        onConfirm={confirmDeleteArticle}
+        title="Delete Journal Article"
+        description="Are you sure you want to delete this editorial piece? It will be removed immediately from the AURELIN Journal."
+        itemName={articleToDelete?.title}
+        isDeleting={deleting}
+      />
     </div>
   );
 }

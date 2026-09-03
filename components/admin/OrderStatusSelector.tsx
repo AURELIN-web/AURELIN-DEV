@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/utils/supabase/client";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ORDER_STATUSES, PAYMENT_STATUSES } from "@/config/site";
 import { Save } from "lucide-react";
@@ -17,28 +17,36 @@ export default function OrderStatusSelector({
   initialOrderStatus,
   initialPaymentStatus,
 }: Props) {
+  const router = useRouter();
   const [orderStatus, setOrderStatus] = useState(initialOrderStatus);
   const [paymentStatus, setPaymentStatus] = useState(initialPaymentStatus);
   const [updating, setUpdating] = useState(false);
 
   const handleUpdate = async () => {
     setUpdating(true);
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("orders")
-      .update({
-        order_status: orderStatus,
-        payment_status: paymentStatus,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", orderId);
+    try {
+      const res = await fetch("/api/admin/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: orderId,
+          order_status: orderStatus,
+          payment_status: paymentStatus,
+        }),
+      });
+      const data = await res.json();
 
-    if (error) {
-      toast.error("Failed to update status");
-    } else {
-      toast.success("Order status updated");
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Failed to update status");
+      }
+
+      toast.success("Order status updated successfully");
+      router.refresh();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update status");
+    } finally {
+      setUpdating(false);
     }
-    setUpdating(false);
   };
 
   const labelStyle = {

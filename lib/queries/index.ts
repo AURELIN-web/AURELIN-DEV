@@ -1,4 +1,6 @@
+import { unstable_cache } from "next/cache";
 import { createClient } from "@/utils/supabase/server";
+import { createAdminClient } from "@/utils/supabase/admin";
 import type { Product, Category, Collection, HeroSettings, AnnouncementBarSettings, WhatsAppSettings, HomepageSection } from "@/types/database";
 
 // ================================================
@@ -32,7 +34,19 @@ export async function getPublishedProducts(options?: {
 
   const { data, error } = await query;
   if (error) console.error("getPublishedProducts error:", error);
-  return (data as Product[]) || [];
+  const products = (data as Product[]) || [];
+  return products.filter((product) => {
+    if (product.show_on_storefront === false) return false;
+    if (product.show_on_storefront === true || product.show_on_storefront == null) return true;
+
+    const hasVisibleVariant = (product.product_variants ?? []).some((variant) => {
+      if (variant.show_on_storefront === false) return false;
+      return variant.show_on_storefront === true || variant.show_on_storefront == null;
+    });
+
+    if (hasVisibleVariant) return true;
+    return Boolean(product.primary_image_url || product.product_images?.length);
+  });
 }
 
 export async function getProductBySlug(slug: string): Promise<Product | null> {
@@ -64,7 +78,19 @@ export async function getRelatedProducts(productId: string, limit = 4): Promise<
     .eq("status", "published")
     .neq("id", productId)
     .limit(limit);
-  return (data as Product[]) || [];
+  const products = (data as Product[]) || [];
+  return products.filter((product) => {
+    if (product.show_on_storefront === false) return false;
+    if (product.show_on_storefront === true || product.show_on_storefront == null) return true;
+
+    const hasVisibleVariant = (product.product_variants ?? []).some((variant) => {
+      if (variant.show_on_storefront === false) return false;
+      return variant.show_on_storefront === true || variant.show_on_storefront == null;
+    });
+
+    if (hasVisibleVariant) return true;
+    return Boolean(product.primary_image_url || product.product_images?.length);
+  });
 }
 
 // ================================================
@@ -131,16 +157,20 @@ export async function getCollectionBySlug(slug: string): Promise<Collection | nu
 // HERO SETTINGS
 // ================================================
 
-export async function getHeroSettings(): Promise<HeroSettings | null> {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("hero_settings")
-    .select("*")
-    .eq("is_active", true)
-    .limit(1)
-    .single();
-  return data as HeroSettings | null;
-}
+export const getHeroSettings = unstable_cache(
+  async (): Promise<HeroSettings | null> => {
+    const supabase = createAdminClient();
+    const { data } = await supabase
+      .from("hero_settings")
+      .select("*")
+      .eq("is_active", true)
+      .limit(1)
+      .single();
+    return data as HeroSettings | null;
+  },
+  ["hero-settings"],
+  { tags: ["hero-settings"], revalidate: 60 }
+);
 
 // ================================================
 // SITE SETTINGS
@@ -225,7 +255,7 @@ export async function searchProducts(query: string, limit = 20) {
 // ================================================
 
 export async function adminGetAllProducts(page = 1, perPage = 20) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const from = (page - 1) * perPage;
   const { data, count } = await supabase
     .from("products")
@@ -236,7 +266,7 @@ export async function adminGetAllProducts(page = 1, perPage = 20) {
 }
 
 export async function adminGetDashboardStats() {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const [
     { count: orderCount },
@@ -245,28 +275,32 @@ export async function adminGetDashboardStats() {
     { data: recentOrders },
     { data: lowStockProducts },
     { data: whatsappCount },
+    { data: ordersData },
   ] = await Promise.all([
     supabase.from("orders").select("id", { count: "exact", head: true }),
-    supabase.from("products").select("id", { count: "exact", head: true }).eq("status", "published"),
+    supabase.from("products").select("id", { count: "exact", head: true }),
     supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "customer"),
     supabase.from("orders").select("*, order_items(*)").order("created_at", { ascending: false }).limit(5),
-    supabase.from("products").select("id, name, stock_quantity, low_stock_threshold").eq("status", "published").filter("stock_quantity", "lte", "low_stock_threshold").limit(5),
+    supabase.from("products").select("id, name, stock_quantity, low_stock_threshold, sku").filter("stock_quantity", "lte", "low_stock_threshold").limit(5),
     supabase.from("whatsapp_enquiries").select("id", { count: "exact", head: true }),
+    supabase.from("orders").select("total, payment_status, order_status, customer_email"),
   ]);
 
-  // Revenue sum
-  const { data: revenueData } = await supabase
-    .from("orders")
-    .select("total")
-    .eq("payment_status", "paid");
+  // Revenue sum from non-cancelled orders
+  const totalRevenue =
+    ordersData
+      ?.filter((o) => o.order_status !== "cancelled")
+      .reduce((sum, o) => sum + (Number(o.total) || 0), 0) || 0;
 
-  const totalRevenue = revenueData?.reduce((sum, o) => sum + (o.total || 0), 0) || 0;
+  // Clients count: max of registered profiles or unique client emails from orders
+  const uniqueOrderEmails = new Set(ordersData?.map((o) => o.customer_email).filter(Boolean));
+  const finalCustomerCount = Math.max(customerCount || 0, uniqueOrderEmails.size);
 
   return {
     totalRevenue,
     orderCount: orderCount || 0,
     productCount: productCount || 0,
-    customerCount: customerCount || 0,
+    customerCount: finalCustomerCount,
     recentOrders: recentOrders || [],
     lowStockProducts: lowStockProducts || [],
     whatsappEnquiries: whatsappCount || 0,

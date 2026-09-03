@@ -2,6 +2,7 @@ import Link from "next/link";
 import { adminGetAllProducts } from "@/lib/queries";
 import { formatPrice, formatDate } from "@/lib/utils/format";
 import { Plus, Edit2, Eye, Package, Image as ImageIcon } from "lucide-react";
+import ProductDeleteButton from "@/components/admin/ProductDeleteButton";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -118,12 +119,12 @@ export default async function AdminProductsPage() {
                       <td className="px-4 py-4 text-xs">
                         <span
                           className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold ${
-                            product.stock_quantity <= product.low_stock_threshold
-                              ? "bg-amber-50 text-amber-700 border border-amber-200"
-                              : "bg-emerald-50 text-emerald-700"
+                            product.stock_quantity > 0
+                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                              : "bg-rose-50 text-rose-700 border border-rose-200"
                           }`}
                         >
-                          {product.stock_quantity} in stock
+                          {product.stock_quantity > 0 ? "In Stock" : "Out of Stock"}
                         </span>
                       </td>
 
@@ -165,6 +166,10 @@ export default async function AdminProductsPage() {
                           >
                             <Edit2 size={12} /> Edit
                           </Link>
+                          <ProductDeleteButton
+                            productId={product.id}
+                            productName={product.name}
+                          />
                         </div>
                       </td>
                     </tr>
@@ -213,7 +218,15 @@ export default async function AdminProductsPage() {
                     <div className="flex items-center gap-2 text-xs">
                       <span className="font-semibold text-[#172744]">{formatPrice(product.price)}</span>
                       <span className="text-charcoal/40">•</span>
-                      <span className="text-charcoal/70 text-[11px]">{product.stock_quantity} in stock</span>
+                      <span
+                        className={`text-[11px] font-semibold ${
+                          product.stock_quantity > 0
+                            ? "text-emerald-700"
+                            : "text-rose-700"
+                        }`}
+                      >
+                        {product.stock_quantity > 0 ? "In Stock" : "Out of Stock"}
+                      </span>
                     </div>
 
                     <div className="pt-2 flex items-center gap-2">
@@ -231,6 +244,11 @@ export default async function AdminProductsPage() {
                       >
                         <Eye size={14} />
                       </Link>
+                      <ProductDeleteButton
+                        productId={product.id}
+                        productName={product.name}
+                        className="p-1.5 border border-red-200 text-red-600 rounded-sm hover:bg-red-50 transition-colors"
+                      />
                     </div>
                   </div>
                 </div>

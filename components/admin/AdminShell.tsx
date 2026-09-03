@@ -4,9 +4,9 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  LayoutDashboard, Package, FolderOpen, Grid3X3, ShoppingCart, Users,
-  Image, Home, Film, Megaphone, BookOpen, MessageCircle,
-  Tag, Settings, LogOut, ExternalLink, Menu, X
+  LayoutDashboard, Package, FolderOpen, Grid3X3, ShoppingCart,
+  Home, Film, MessageCircle,
+  Settings, LogOut, Menu, X
 } from "lucide-react";
 
 const navGroups = [
@@ -28,8 +28,6 @@ const navGroups = [
     label: "SALES & CLIENTS",
     items: [
       { href: "/admin/orders", label: "Orders", icon: ShoppingCart },
-      { href: "/admin/customers", label: "Customers", icon: Users },
-      { href: "/admin/discounts", label: "Discounts", icon: Tag },
     ],
   },
   {
@@ -37,13 +35,11 @@ const navGroups = [
     items: [
       { href: "/admin/homepage", label: "Homepage CMS", icon: Home },
       { href: "/admin/hero", label: "Hero Video & Banners", icon: Film },
-      { href: "/admin/journal", label: "Journal Stories", icon: BookOpen },
     ],
   },
   {
     label: "SYSTEM & MEDIA",
     items: [
-      { href: "/admin/media", label: "Media Library (Cloudinary)", icon: Image },
       { href: "/admin/whatsapp", label: "WhatsApp Concierge", icon: MessageCircle },
       { href: "/admin/settings", label: "Site Settings", icon: Settings },
     ],
@@ -155,17 +151,6 @@ export default function AdminShell({
 
       {/* Footer Actions */}
       <div className="border-t border-white/10 p-3 space-y-1.5 flex-shrink-0 bg-[#0C1626]">
-        <a
-          href="/"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-3 px-3 py-2 rounded-sm text-[#D8C8AF]/70 hover:text-[#F8F6F0] hover:bg-white/5 transition-colors text-xs"
-          style={{ fontFamily: "var(--font-inter)" }}
-        >
-          <ExternalLink size={14} className="flex-shrink-0 text-[#B9A77A]" />
-          <span>Live Storefront ↗</span>
-        </a>
-
         <button
           onClick={handleSignOut}
           className="flex items-center gap-3 px-3 py-2 rounded-sm text-[#D8C8AF]/70 hover:text-red-400 hover:bg-red-500/10 transition-colors w-full text-xs text-left"

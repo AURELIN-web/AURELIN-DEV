@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { slugify } from "@/lib/utils/format";
 import { Plus, Trash2, Upload, Save, ArrowLeft, Loader2, Image as ImageIcon } from "lucide-react";
 import { uploadToCloudinary } from "@/lib/upload";
 import Link from "next/link";
+import ProductDeleteButton from "./ProductDeleteButton";
 
 const PRODUCT_SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
 
@@ -19,7 +20,93 @@ interface Variant {
   stock_quantity: number;
   sku: string;
   is_available: boolean;
+  image_url?: string;
+  show_on_storefront?: boolean;
 }
+
+interface SizeEntry {
+  id?: string;
+  size: string;
+  price: string;
+  sku: string;
+  is_available: boolean;
+  stock_quantity: number;
+  image_url?: string;
+}
+
+interface ColorGroup {
+  id: string;
+  colour: string;
+  colour_hex: string;
+  image_urls: string[];
+  show_on_storefront: boolean;
+  sizes: SizeEntry[];
+}
+
+const makeId = () => `id-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+const createColorGroups = (existingVariants: Variant[]): ColorGroup[] => {
+  const groups = new Map<string, ColorGroup>();
+
+  existingVariants.forEach((variant, index) => {
+    const colourName = (variant.colour || "Standard").trim() || "Standard";
+    const key = colourName.toLowerCase();
+
+    if (!groups.has(key)) {
+      groups.set(key, {
+        id: `color-${index}-${key}`,
+        colour: colourName,
+        colour_hex: variant.colour_hex || "#D8C8AF",
+        image_urls: variant.image_url ? [variant.image_url] : [],
+        show_on_storefront: !!variant.show_on_storefront,
+        sizes: [],
+      });
+    }
+
+    const group = groups.get(key)!;
+    const sizeName = (variant.size || "ONE SIZE").trim() || "ONE SIZE";
+
+    group.sizes.push({
+      id: variant.id || makeId(),
+      size: sizeName,
+      price: variant.price?.toString() || "",
+      sku: variant.sku || "",
+      is_available: variant.is_available !== false,
+      stock_quantity: variant.stock_quantity ?? (variant.is_available !== false ? 1 : 0),
+      image_url: variant.image_url || group.image_urls[0] || "",
+    });
+  });
+
+  return Array.from(groups.values());
+};
+
+const flattenColorGroups = (
+  groups: ColorGroup[],
+  fallbackPrice: string,
+  fallbackSku: string,
+  totalStockEnabled: boolean
+): Variant[] =>
+  groups.flatMap((group) =>
+    group.sizes.map((sizeEntry) => {
+      const isAvailable = totalStockEnabled ? sizeEntry.is_available : false;
+      const stockQuantity = totalStockEnabled ? Number(sizeEntry.stock_quantity || 0) : 0;
+
+      return {
+        id: sizeEntry.id,
+        size: sizeEntry.size,
+        colour: group.colour,
+        colour_hex: group.colour_hex,
+        price: sizeEntry.price || fallbackPrice || "149",
+        stock_quantity: stockQuantity,
+        sku:
+          sizeEntry.sku ||
+          (fallbackSku ? `${fallbackSku}-${group.colour}-${sizeEntry.size}` : `${group.colour}-${sizeEntry.size}`),
+        is_available: isAvailable,
+        image_url: group.image_urls[0] || sizeEntry.image_url || "",
+        show_on_storefront: group.show_on_storefront,
+      };
+    })
+  );
 
 interface FormData {
   name: string;
@@ -77,10 +164,15 @@ export default function ProductFormClient({
     variants?: Variant[];
     images?: { url: string; alt_text?: string }[];
     primary_image_url?: string;
+    category_id?: string;
+    show_on_storefront?: boolean;
   };
 }) {
   const [form, setForm] = useState<FormData>(initialProduct || defaultForm);
-  const [variants, setVariants] = useState<Variant[]>(initialProduct?.variants || []);
+  const [categories, setCategories] = useState<Array<{ id: string; name: string }>>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>(initialProduct?.category_id || "");
+  const [colorGroups, setColorGroups] = useState<ColorGroup[]>(createColorGroups(initialProduct?.variants || []));
+  const [customSizeInputs, setCustomSizeInputs] = useState<Record<string, string>>({});
   const [images, setImages] = useState<{ url: string; alt_text?: string }[]>(
     initialProduct?.images && initialProduct.images.length > 0
       ? initialProduct.images
@@ -93,6 +185,45 @@ export default function ProductFormClient({
   const [saving, setSaving] = useState(false);
   const router = useRouter();
 
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const res = await fetch("/api/admin/categories");
+        const data = await res.json();
+        if (res.ok && Array.isArray(data?.data)) {
+          setCategories(data.data);
+        }
+      } catch {
+        // ignore category load failure
+      }
+    };
+
+    loadCategories();
+  }, []);
+
+  const totalStockEnabled = Number(form.stock_quantity) > 0;
+
+  const variants = useMemo(
+    () => flattenColorGroups(colorGroups, form.price || "149", form.sku || "", totalStockEnabled),
+    [colorGroups, form.price, form.sku, totalStockEnabled]
+  );
+
+  const colorGalleryImages = useMemo(
+    () =>
+      colorGroups.flatMap((group) =>
+        group.image_urls.map((url, index) => ({
+          url,
+          alt_text: `${group.colour} ${index + 1}`,
+        }))
+      ),
+    [colorGroups]
+  );
+
+  const primaryProductImage = useMemo(
+    () => colorGalleryImages[0]?.url || images[0]?.url || initialProduct?.primary_image_url || null,
+    [colorGalleryImages, images, initialProduct?.primary_image_url]
+  );
+
   const updateField = <K extends keyof FormData>(key: K, value: FormData[K]) => {
     setForm((prev) => ({
       ...prev,
@@ -101,28 +232,220 @@ export default function ProductFormClient({
     }));
   };
 
-  const addVariant = () => {
-    setVariants((prev) => [
+  const addColorGroup = (colourName?: string) => {
+    const nextColour = colourName || `Color ${colorGroups.length + 1}`;
+    const isDuplicate = colorGroups.some((group) => group.colour.toLowerCase() === nextColour.toLowerCase());
+
+    if (isDuplicate) {
+      toast.info(`Color ${nextColour} already exists`);
+      return;
+    }
+
+    setColorGroups((prev) => [
       ...prev,
       {
-        size: "M",
-        colour: "Sand Beige",
+        id: makeId(),
+        colour: nextColour,
         colour_hex: "#D8C8AF",
-        price: form.price || "149",
-        stock_quantity: 10,
-        sku: form.sku ? `${form.sku}-M` : "",
-        is_available: true,
+        image_urls: [],
+        show_on_storefront: prev.length === 0,
+        sizes: [],
       },
     ]);
   };
 
-  const removeVariant = (index: number) => {
-    setVariants((prev) => prev.filter((_, i) => i !== index));
+  const addSizeToColour = (colourName: string, sizeName: string) => {
+    const normalizedSize = sizeName.trim();
+    if (!normalizedSize) return;
+
+    setColorGroups((prev) => {
+      const groupIndex = prev.findIndex((group) => group.colour.toLowerCase() === colourName.toLowerCase());
+
+      if (groupIndex >= 0) {
+        const existingGroup = prev[groupIndex];
+        const hasSize = existingGroup.sizes.some((sizeEntry) => sizeEntry.size.toUpperCase() === normalizedSize.toUpperCase());
+
+        if (hasSize) {
+          toast.info(`${colourName} already contains size ${normalizedSize}`);
+          return prev;
+        }
+
+        return prev.map((group, index) =>
+          index === groupIndex
+            ? {
+                ...group,
+                sizes: [
+                  ...group.sizes,
+                  {
+                    id: makeId(),
+                    size: normalizedSize.toUpperCase(),
+                    price: form.price || "149",
+                    sku: form.sku ? `${form.sku}-${colourName}-${normalizedSize}` : "",
+                    is_available: true,
+                    stock_quantity: 1,
+                  },
+                ],
+              }
+            : group
+        );
+      }
+
+      return [
+        ...prev,
+        {
+          id: makeId(),
+          colour: colourName,
+          colour_hex: "#D8C8AF",
+          image_urls: [],
+          show_on_storefront: prev.length === 0,
+          sizes: [
+            {
+              id: makeId(),
+              size: normalizedSize.toUpperCase(),
+              price: form.price || "149",
+              sku: form.sku ? `${form.sku}-${colourName}-${normalizedSize}` : "",
+              is_available: true,
+              stock_quantity: 1,
+            },
+          ],
+        },
+      ];
+    });
+
+    toast.success(`${colourName} - ${normalizedSize.toUpperCase()} added`);
   };
 
-  const updateVariant = (index: number, key: keyof Variant, value: string | number | boolean) => {
-    setVariants((prev) =>
-      prev.map((v, i) => (i === index ? { ...v, [key]: value } : v))
+  const addAllStandardSizesToColour = (colourName: string) => {
+    setColorGroups((prev) => {
+      const groupIndex = prev.findIndex((group) => group.colour.toLowerCase() === colourName.toLowerCase());
+
+      if (groupIndex >= 0) {
+        const existingSizes = new Set(prev[groupIndex].sizes.map((sizeEntry) => sizeEntry.size.toUpperCase()));
+        const sizesToAdd = PRODUCT_SIZES.filter((size) => !existingSizes.has(size));
+
+        if (sizesToAdd.length === 0) {
+          toast.info(`All standard sizes already added for ${colourName}`);
+          return prev;
+        }
+
+        return prev.map((group, index) =>
+          index === groupIndex
+            ? {
+                ...group,
+                sizes: [
+                  ...group.sizes,
+                  ...sizesToAdd.map((size) => ({
+                    id: makeId(),
+                    size,
+                    price: form.price || "149",
+                    sku: form.sku ? `${form.sku}-${colourName}-${size}` : "",
+                    is_available: true,
+                    stock_quantity: 1,
+                  })),
+                ],
+              }
+            : group
+        );
+      }
+
+      return [
+        ...prev,
+        {
+          id: makeId(),
+          colour: colourName,
+          colour_hex: "#D8C8AF",
+          image_urls: [],
+          show_on_storefront: prev.length === 0,
+          sizes: PRODUCT_SIZES.map((size) => ({
+            id: makeId(),
+            size,
+            price: form.price || "149",
+            sku: form.sku ? `${form.sku}-${colourName}-${size}` : "",
+            is_available: true,
+            stock_quantity: 1,
+          })),
+        },
+      ];
+    });
+
+    toast.success(`Added standard sizes for ${colourName}`);
+  };
+
+  const updateSizeEntry = (groupId: string, sizeId: string, key: keyof SizeEntry, value: string | number | boolean) => {
+    setColorGroups((prev) =>
+      prev.map((group) =>
+        group.id === groupId
+          ? {
+              ...group,
+              sizes: group.sizes.map((sizeEntry) =>
+                sizeEntry.id === sizeId ? { ...sizeEntry, [key]: value } : sizeEntry
+              ),
+            }
+          : group
+      )
+    );
+  };
+
+  const removeSizeFromColour = (groupId: string, sizeId: string) => {
+    setColorGroups((prev) =>
+      prev
+        .map((group) =>
+          group.id === groupId
+            ? { ...group, sizes: group.sizes.filter((sizeEntry) => sizeEntry.id !== sizeId) }
+            : group
+        )
+        .filter((group) => group.sizes.length > 0)
+    );
+  };
+
+  const removeColorGroup = (groupId: string) => {
+    setColorGroups((prev) => {
+      const filtered = prev.filter((group) => group.id !== groupId);
+      if (filtered.length > 0 && !filtered.some((group) => group.show_on_storefront)) {
+        filtered[0].show_on_storefront = true;
+      }
+      return filtered;
+    });
+  };
+
+  const setStorefrontColor = (groupId: string) => {
+    setColorGroups((prev) =>
+      prev.map((group) => ({
+        ...group,
+        show_on_storefront: group.id === groupId,
+      }))
+    );
+  };
+
+  const uploadColorImages = async (groupId: string, files: FileList | null) => {
+    if (!files || files.length === 0) return;
+
+    const uploadedUrls: string[] = [];
+
+    for (const file of Array.from(files)) {
+      const result = await uploadToCloudinary(file, "products", () => undefined);
+      if (result.success && result.url) {
+        uploadedUrls.push(result.url);
+      } else {
+        toast.error(result.error || "Color image upload failed");
+      }
+    }
+
+    if (uploadedUrls.length === 0) return;
+
+    setColorGroups((prev) =>
+      prev.map((group) =>
+        group.id === groupId ? { ...group, image_urls: [...group.image_urls, ...uploadedUrls] } : group
+      )
+    );
+    toast.success(`${uploadedUrls.length} color image${uploadedUrls.length > 1 ? "s" : ""} uploaded`);
+  };
+
+  const removeColorImage = (groupId: string, imageUrl: string) => {
+    setColorGroups((prev) =>
+      prev.map((group) =>
+        group.id === groupId ? { ...group, image_urls: group.image_urls.filter((url) => url !== imageUrl) } : group
+      )
     );
   };
 
@@ -172,8 +495,9 @@ export default function ProductFormClient({
       const payload = {
         ...form,
         id: initialProduct?.id,
-        primary_image_url: images[0]?.url || null,
-        images,
+        category_id: selectedCategoryId || null,
+        primary_image_url: primaryProductImage,
+        images: colorGalleryImages.length > 0 ? colorGalleryImages : images,
         variants,
       };
 
@@ -234,27 +558,15 @@ export default function ProductFormClient({
 
         {/* Top Actions: Status + Save Button */}
         <div className="flex flex-wrap items-center gap-3">
-          {/* Clean Status Pill Selector (No Emojis) */}
-          <div className="flex items-center p-1 bg-white border border-[#D8C8AF] rounded-sm">
-            {[
-              { value: "published", label: "Published" },
-              { value: "draft", label: "Draft" },
-              { value: "archived", label: "Archived" },
-            ].map((s) => (
-              <button
-                key={s.value}
-                type="button"
-                onClick={() => updateField("status", s.value as any)}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-sm transition-colors ${
-                  form.status === s.value
-                    ? "bg-[#172744] text-[#F8F6F0] shadow-xs"
-                    : "text-charcoal/60 hover:text-[#172744]"
-                }`}
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
+     
+
+          {initialProduct?.id && (
+            <ProductDeleteButton
+              productId={initialProduct.id}
+              productName={form.name || "Garment"}
+              variant="button"
+            />
+          )}
 
           <button
             type="button"
@@ -314,6 +626,22 @@ export default function ProductFormClient({
               placeholder="riviera-linen-overshirt"
               className={`${inputClass} font-mono text-xs`}
             />
+          </div>
+
+          <div>
+            <label className={labelClass}>Category</label>
+            <select
+              value={selectedCategoryId}
+              onChange={(e) => setSelectedCategoryId(e.target.value)}
+              className={inputClass}
+            >
+              <option value="">Select a category</option>
+              {categories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="md:col-span-3">
@@ -386,12 +714,17 @@ export default function ProductFormClient({
 
           <div>
             <label className={labelClass}>Total Stock Inventory</label>
-            <input
-              type="number"
-              value={form.stock_quantity}
-              onChange={(e) => updateField("stock_quantity", parseInt(e.target.value, 10) || 0)}
-              className={inputClass}
-            />
+            <label className="flex items-center gap-3 px-4 py-3 bg-[#F8F6F0] border border-[#D8C8AF] rounded-sm cursor-pointer w-full min-h-[48px]">
+              <input
+                type="checkbox"
+                checked={Number(form.stock_quantity) > 0}
+                onChange={(e) => updateField("stock_quantity", e.target.checked ? 1 : 0)}
+                className="w-4 h-4 accent-[#172744] rounded"
+              />
+              <span className="text-sm font-medium text-[#242424]">
+                {Number(form.stock_quantity) > 0 ? "In Stock" : "Out of Stock"}
+              </span>
+            </label>
           </div>
         </div>
 
@@ -415,191 +748,258 @@ export default function ProductFormClient({
         </div>
       </section>
 
-      {/* 3. Visual Imagery (Cloudinary) */}
+      {/* 4. Color + Size + Stock Availability Management */}
       <section className="bg-white border border-[#D8C8AF] rounded-sm p-6 md:p-8 shadow-sm space-y-6">
-        <div className="flex items-center justify-between pb-2 border-b border-[#D8C8AF30]">
-          <h2 className="text-xs font-semibold tracking-widest text-[#172744] uppercase">
-            3. GARMENT PHOTOS ({images.length})
-          </h2>
-          <span className="text-[11px] text-charcoal/50">First image is the primary storefront cover</span>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-4">
-          {images.map((img, i) => (
-            <div
-              key={img.url}
-              className={`relative aspect-[3/4] bg-[#F8F6F0] rounded border overflow-hidden group ${
-                i === 0 ? "border-[#172744] ring-2 ring-[#172744]/20" : "border-[#D8C8AF]"
-              }`}
-            >
-              <img src={img.url} alt={img.alt_text || "Garment photo"} className="w-full h-full object-cover" />
-
-              {/* Primary badge */}
-              {i === 0 && (
-                <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 bg-[#172744] text-[#F8F6F0] text-[9px] font-bold uppercase tracking-wider rounded-xs shadow">
-                  PRIMARY
-                </span>
-              )}
-
-              {/* Hover actions */}
-              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1.5 p-2">
-                {i !== 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setPrimaryImage(i)}
-                    className="px-2 py-1 bg-white text-[#172744] text-[10px] font-semibold rounded shadow hover:bg-[#F8F6F0]"
-                  >
-                    Make Primary
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => removeImage(i)}
-                  className="p-1 bg-red-600 text-white rounded hover:bg-red-700"
-                >
-                  <Trash2 size={13} />
-                </button>
-              </div>
-            </div>
-          ))}
-
-          {/* Upload Dropzone Tile */}
-          <label className="relative aspect-[3/4] border-2 border-dashed border-[#D8C8AF] hover:border-[#172744] bg-[#F8F6F0]/50 rounded flex flex-col items-center justify-center cursor-pointer transition-colors p-3 text-center">
-            {uploading ? (
-              <div className="space-y-1 text-center">
-                <Loader2 size={20} className="animate-spin text-[#172744] mx-auto" />
-                <span className="text-[10px] text-charcoal/70">
-                  {uploadProgress !== null ? `${uploadProgress}%` : "Uploading..."}
-                </span>
-              </div>
-            ) : (
-              <>
-                <Upload size={20} className="text-[#172744]/60 mb-1" />
-                <span className="text-[11px] font-semibold text-[#172744] uppercase tracking-wider">
-                  + Add Photos
-                </span>
-                <span className="text-[9px] text-charcoal/40 mt-0.5">JPG, PNG, WebP</span>
-              </>
-            )}
-            <input
-              type="file"
-              multiple
-              accept="image/*"
-              className="hidden"
-              disabled={uploading}
-              onChange={(e) => handleImageUpload(e.target.files)}
-            />
-          </label>
-        </div>
-      </section>
-
-      {/* 4. Sizes & Colour Swatches */}
-      <section className="bg-white border border-[#D8C8AF] rounded-sm p-6 md:p-8 shadow-sm space-y-6">
-        <div className="flex items-center justify-between pb-2 border-b border-[#D8C8AF30]">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-[#D8C8AF30]">
           <div>
             <h2 className="text-xs font-semibold tracking-widest text-[#172744] uppercase">
-              4. SIZES & COLOUR SWATCHES
+              4. COLOR + SIZE + STOCK
             </h2>
-            <p className="text-[11px] text-charcoal/50 mt-0.5">Define size and colour options for clients</p>
+            <p className="text-[11px] text-charcoal/50 mt-0.5">
+              Add multiple colours, assign sizes to each colour, and manage availability independently for every colour and size combination.
+            </p>
           </div>
-          <button
-            type="button"
-            onClick={addVariant}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#172744] text-[#F8F6F0] text-xs font-semibold uppercase tracking-wider rounded-sm hover:bg-[#101C32]"
-          >
-            <Plus size={13} /> Add Variant Option
-          </button>
-        </div>
 
-        {variants.length === 0 ? (
-          <div className="p-6 bg-[#F8F6F0] border border-dashed border-[#D8C8AF] rounded text-center space-y-2">
-            <p className="text-xs text-charcoal/60">No specific variant breakdown added.</p>
+          <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={addVariant}
-              className="px-4 py-2 bg-white border border-[#172744] text-[#172744] text-xs font-semibold uppercase tracking-wider rounded-sm hover:bg-[#172744] hover:text-white transition-colors"
+              onClick={() => addColorGroup()}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#172744] text-[#F8F6F0] text-xs font-semibold uppercase tracking-wider rounded-sm hover:bg-[#101C32] transition-colors"
             >
-              + Create Size & Colour Options
+              <Plus size={13} /> Add Color
+            </button>
+          </div>
+        </div>
+
+        {colorGroups.length === 0 ? (
+          <div className="p-8 bg-[#F8F6F0] border border-dashed border-[#D8C8AF] rounded text-center space-y-3">
+            <p className="text-xs text-charcoal/60">No colours added yet for this product.</p>
+            <button
+              type="button"
+              onClick={() => addColorGroup()}
+              className="px-4 py-2 bg-[#172744] text-[#F8F6F0] text-xs font-semibold uppercase tracking-wider rounded-sm hover:bg-[#101C32] transition-colors"
+            >
+              + Add First Color
             </button>
           </div>
         ) : (
-          <div className="space-y-3">
-            {variants.map((v, index) => (
-              <div
-                key={index}
-                className="grid grid-cols-1 sm:grid-cols-6 gap-3 items-center p-3.5 bg-[#F8F6F0] border border-[#D8C8AF]/60 rounded-sm"
-              >
-                {/* Size */}
-                <div>
-                  <label className="text-[10px] font-bold text-[#172744] uppercase tracking-wider block mb-1">
-                    Size
-                  </label>
-                  <select
-                    value={v.size}
-                    onChange={(e) => updateVariant(index, "size", e.target.value)}
-                    className="w-full px-2.5 py-2 bg-white border border-[#D8C8AF] text-xs font-medium rounded-sm"
-                  >
-                    {PRODUCT_SIZES.map((sz) => (
-                      <option key={sz} value={sz}>
-                        {sz}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Colour Name */}
-                <div className="sm:col-span-2">
-                  <label className="text-[10px] font-bold text-[#172744] uppercase tracking-wider block mb-1">
-                    Colour Name
-                  </label>
-                  <input
-                    type="text"
-                    value={v.colour}
-                    onChange={(e) => updateVariant(index, "colour", e.target.value)}
-                    placeholder="e.g. Navy Blue, Olive, Sand"
-                    className="w-full px-3 py-2 bg-white border border-[#D8C8AF] text-xs rounded-sm"
-                  />
-                </div>
-
-                {/* Colour Swatch Hex */}
-                <div>
-                  <label className="text-[10px] font-bold text-[#172744] uppercase tracking-wider block mb-1">
-                    Swatch
-                  </label>
-                  <div className="flex items-center gap-2">
+          <div className="space-y-4">
+            {colorGroups.map((group) => (
+              <div key={group.id} className="rounded-sm border border-[#D8C8AF] bg-[#F8F6F0]/60 p-4 space-y-4">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 w-full md:max-w-sm">
                     <input
-                      type="color"
-                      value={v.colour_hex || "#D8C8AF"}
-                      onChange={(e) => updateVariant(index, "colour_hex", e.target.value)}
-                      className="w-8 h-8 p-0 border border-[#D8C8AF] rounded cursor-pointer"
+                      type="text"
+                      value={group.colour}
+                      onChange={(e) =>
+                        setColorGroups((prev) =>
+                          prev.map((item) =>
+                            item.id === group.id ? { ...item, colour: e.target.value } : item
+                          )
+                        )
+                      }
+                      placeholder="Colour name"
+                      className="w-full px-3 py-2 bg-white border border-[#D8C8AF] text-sm rounded-sm"
                     />
-                    <span className="text-[11px] font-mono">{v.colour_hex}</span>
+                    <label className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-[#172744]">
+                      <span>Hex</span>
+                      <input
+                        type="color"
+                        value={group.colour_hex}
+                        onChange={(e) =>
+                          setColorGroups((prev) =>
+                            prev.map((item) =>
+                              item.id === group.id ? { ...item, colour_hex: e.target.value } : item
+                            )
+                          )
+                        }
+                        className="w-10 h-10 rounded-sm cursor-pointer"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <label className="inline-flex items-center gap-2 px-2.5 py-1.5 bg-white border border-[#D8C8AF] rounded-sm cursor-pointer text-[10px] font-semibold uppercase tracking-wider text-[#172744] hover:border-[#172744]">
+                      <input
+                        type="checkbox"
+                        checked={group.show_on_storefront}
+                        onChange={() => setStorefrontColor(group.id)}
+                        className="w-3.5 h-3.5 accent-[#172744] rounded"
+                      />
+                      Card color
+                    </label>
+
+                    <label className="relative inline-flex items-center gap-2 px-2.5 py-1.5 bg-white border border-[#D8C8AF] rounded-sm cursor-pointer text-[10px] font-semibold uppercase tracking-wider text-[#172744] hover:border-[#172744]">
+                      {group.image_urls.length > 0 ? "Upload More" : "Upload Images"}
+                      <Upload size={12} />
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        className="hidden"
+                        onChange={(e) => uploadColorImages(group.id, e.target.files)}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => addAllStandardSizesToColour(group.colour)}
+                      className="px-2.5 py-1.5 bg-white border border-[#D8C8AF] text-[#172744] text-[10px] font-semibold uppercase tracking-wider rounded-sm hover:border-[#172744]"
+                    >
+                      + All Sizes
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeColorGroup(group.id)}
+                      className="p-2 text-red-600 hover:bg-red-50 rounded-sm transition-colors"
+                      title="Remove colour"
+                    >
+                      <Trash2 size={15} />
+                    </button>
                   </div>
                 </div>
 
-                {/* Stock */}
-                <div>
-                  <label className="text-[10px] font-bold text-[#172744] uppercase tracking-wider block mb-1">
-                    Stock Qty
-                  </label>
-                  <input
-                    type="number"
-                    value={v.stock_quantity}
-                    onChange={(e) => updateVariant(index, "stock_quantity", parseInt(e.target.value, 10) || 0)}
-                    className="w-full px-3 py-2 bg-white border border-[#D8C8AF] text-xs rounded-sm"
-                  />
+                <div className="space-y-3">
+                  {group.image_urls.length > 0 ? (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
+                      {group.image_urls.map((imageUrl, index) => (
+                        <div key={`${group.id}-${index}`} className="relative aspect-[3/4] overflow-hidden rounded-sm border border-[#D8C8AF] bg-[#F8F6F0]">
+                          <img src={imageUrl} alt={`${group.colour} uploaded ${index + 1}`} className="w-full h-full object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => removeColorImage(group.id, imageUrl)}
+                            className="absolute top-1.5 right-1.5 p-1 bg-white/90 text-red-600 rounded-sm shadow-sm hover:bg-white"
+                            title="Remove image"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="rounded-sm border border-dashed border-[#D8C8AF] bg-[#F8F6F0] p-4 text-center text-[11px] text-charcoal/60">
+                      No color photos uploaded yet.
+                    </div>
+                  )}
                 </div>
 
-                {/* Remove button */}
-                <div className="flex justify-end pt-4 sm:pt-0">
-                  <button
-                    type="button"
-                    onClick={() => removeVariant(index)}
-                    className="p-2 text-red-600 hover:bg-red-50 rounded"
-                    title="Remove variant"
-                  >
-                    <Trash2 size={15} />
-                  </button>
+                <div className="p-3 bg-white border border-[#D8C8AF]/80 rounded-sm space-y-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#172744]/70 mr-1">
+                      Quick Add Size:
+                    </span>
+                    {PRODUCT_SIZES.map((size) => (
+                      <button
+                        key={size}
+                        type="button"
+                        onClick={() => addSizeToColour(group.colour, size)}
+                        className="px-2.5 py-1 bg-[#F8F6F0] border border-[#D8C8AF] text-[#172744] hover:bg-[#172744] hover:text-[#F8F6F0] font-semibold text-[10px] rounded-sm transition-colors"
+                      >
+                        + {size}
+                      </button>
+                    ))}
+                    <div className="flex items-center gap-1.5 ml-auto min-w-[180px]">
+                      <input
+                        type="text"
+                        value={customSizeInputs[group.id] || ""}
+                        onChange={(e) =>
+                          setCustomSizeInputs((prev) => ({
+                            ...prev,
+                            [group.id]: e.target.value,
+                          }))
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && (customSizeInputs[group.id] || "").trim()) {
+                            e.preventDefault();
+                            addSizeToColour(group.colour, customSizeInputs[group.id]);
+                            setCustomSizeInputs((prev) => ({ ...prev, [group.id]: "" }));
+                          }
+                        }}
+                        placeholder="Custom size"
+                        className="flex-1 px-2.5 py-1.5 text-xs border border-[#D8C8AF] bg-white rounded-sm outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const value = (customSizeInputs[group.id] || "").trim();
+                          if (!value) return;
+                          addSizeToColour(group.colour, value);
+                          setCustomSizeInputs((prev) => ({ ...prev, [group.id]: "" }));
+                        }}
+                        className="px-3 py-1.5 bg-[#172744] text-white text-[10px] font-semibold uppercase tracking-wider rounded-sm disabled:opacity-40"
+                      >
+                        Add
+                      </button>
+                    </div>
+                  </div>
+
+                  {group.sizes.length === 0 ? (
+                    <div className="rounded-sm border border-dashed border-[#D8C8AF] bg-[#F8F6F0] p-4 text-center text-[11px] text-charcoal/60">
+                      No sizes added for this colour yet.
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {group.sizes.map((sizeEntry) => (
+                        <div
+                          key={sizeEntry.id}
+                          className={`grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-3 items-center p-3 rounded-sm  ${
+                            sizeEntry.is_available
+                              ? "border-gray-100"
+                              : "border-gray-100"
+                          }`}
+                        >
+                          <div>
+                            <label className="text-[10px] font-bold uppercase tracking-wider text-[#172744] block mb-1">
+                              Size
+                            </label>
+                            <input
+                              type="text"
+                              value={sizeEntry.size}
+                              onChange={(e) =>
+                                updateSizeEntry(group.id, sizeEntry.id || "", "size", e.target.value.toUpperCase())
+                              }
+                              className="w-full px-2.5 py-1.5 bg-white border border-[#D8C8AF] text-xs font-semibold uppercase rounded-sm"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-[10px] font-bold uppercase tracking-wider text-[#172744] block mb-1">
+                              Availability
+                            </label>
+                            <label
+                              className={`flex items-center gap-2 px-3 py-2 rounded-sm border cursor-pointer select-none transition-colors ${
+                                sizeEntry.is_available
+                                  ? "bg-emerald-50 border-emerald-300 text-emerald-800"
+                                  : "bg-rose-50 border-rose-300 text-rose-800"
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={sizeEntry.is_available}
+                                onChange={(e) =>
+                                  updateSizeEntry(group.id, sizeEntry.id || "", "is_available", e.target.checked)
+                                }
+                                className="w-4 h-4 accent-[#172744] rounded cursor-pointer"
+                              />
+                              <span className="text-xs font-semibold tracking-wide">
+                                {sizeEntry.is_available ? "In Stock" : "Out of Stock"}
+                              </span>
+                            </label>
+                          </div>
+
+                          <div className="flex justify-end">
+                            <button
+                              type="button"
+                              onClick={() => removeSizeFromColour(group.id, sizeEntry.id || "")}
+                              className="p-2 text-red-600 hover:bg-red-50 rounded-sm transition-colors"
+                              title="Remove size"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -661,13 +1061,22 @@ export default function ProductFormClient({
       </section>
 
       {/* Bottom Action Bar (In Normal Flow - NEVER Covers Content) */}
-      <div className="flex items-center justify-between p-6 bg-white border border-[#D8C8AF] rounded-sm shadow-sm">
-        <Link
-          href="/admin/products"
-          className="px-6 py-2.5 border border-[#D8C8AF] text-[#172744] text-xs font-semibold uppercase tracking-wider rounded-sm hover:bg-[#F8F6F0] transition-colors"
-        >
-          Cancel
-        </Link>
+      <div className="flex flex-wrap items-center justify-between gap-4 p-6 bg-white border border-[#D8C8AF] rounded-sm shadow-sm">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/admin/products"
+            className="px-6 py-2.5 border border-[#D8C8AF] text-[#172744] text-xs font-semibold uppercase tracking-wider rounded-sm hover:bg-[#F8F6F0] transition-colors"
+          >
+            Cancel
+          </Link>
+          {initialProduct?.id && (
+            <ProductDeleteButton
+              productId={initialProduct.id}
+              productName={form.name || "Garment"}
+              variant="button"
+            />
+          )}
+        </div>
         <button
           type="button"
           onClick={handleSave}

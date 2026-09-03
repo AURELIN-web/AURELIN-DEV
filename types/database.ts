@@ -60,6 +60,7 @@ export interface Product {
   is_featured: boolean;
   is_new_arrival: boolean;
   is_best_seller: boolean;
+  show_on_storefront: boolean;
   stock_quantity: number;
   low_stock_threshold: number;
   brand: string;
@@ -92,6 +93,7 @@ export interface ProductVariant {
   stock_quantity: number;
   is_available: boolean;
   image_url: string | null;
+  show_on_storefront: boolean;
   created_at: string;
 }
 
@@ -162,6 +164,7 @@ export interface Order {
     | "packed"
     | "shipped"
     | "delivered"
+    | "completed"
     | "cancelled"
     | "returned";
   payment_provider: string | null;

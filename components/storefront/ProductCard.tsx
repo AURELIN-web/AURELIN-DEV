@@ -29,6 +29,12 @@ export default function ProductCard({ product, priority = false }: Props) {
   const isLowStock = product.stock_quantity <= product.low_stock_threshold && product.stock_quantity > 0;
   const isOutOfStock = product.stock_quantity === 0;
 
+  const storefrontVariant =
+    product.product_variants?.find((v) => v.show_on_storefront && v.image_url) ||
+    product.product_variants?.find((v) => v.image_url) ||
+    null;
+  const storefrontImage = storefrontVariant?.image_url || product.primary_image_url;
+
   const hoverImage = product.hover_image_url ||
     (product.product_images && product.product_images.length > 1 ? product.product_images[1].url : null);
   const hasHoverImage = !!hoverImage && hoverImage !== product.primary_image_url;
@@ -64,7 +70,6 @@ export default function ProductCard({ product, priority = false }: Props) {
       maxStock: selectedVariant?.stock_quantity ?? product.stock_quantity,
     });
 
-    toast.success(`${product.name} added to bag`);
     openCart();
 
     setTimeout(() => {
@@ -78,9 +83,9 @@ export default function ProductCard({ product, priority = false }: Props) {
       <div className="relative block overflow-hidden aspect-[3/4] bg-[#D8C8AF]/20">
         <Link href={`/product/${product.slug}`} className="absolute inset-0 block">
           {/* Primary Image */}
-          {product.primary_image_url ? (
+          {storefrontImage ? (
             <Image
-              src={product.primary_image_url}
+              src={storefrontImage}
               alt={product.name}
               fill
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
@@ -134,7 +139,7 @@ export default function ProductCard({ product, priority = false }: Props) {
 
         {/* Discount Badge */}
         {discount && (
-          <div className="absolute top-3 right-3 z-10 pointer-events-none">
+          <div className="absolute top-3 left-3 z-10 pointer-events-none">
             <span
               className="label-uppercase px-2 py-1"
               style={{
@@ -151,7 +156,7 @@ export default function ProductCard({ product, priority = false }: Props) {
 
         {/* New Arrival Badge */}
         {product.is_new_arrival && !discount && !isOutOfStock && (
-          <div className="absolute top-3 right-3 z-10 pointer-events-none">
+          <div className="absolute top-3 left-3 z-10 pointer-events-none">
             <span
               className="label-uppercase px-2 py-1"
               style={{

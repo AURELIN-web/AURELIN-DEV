@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Plus, Save, Trash2, GripVertical } from "lucide-react";
 import { slugify } from "@/lib/utils/format";
 import type { Category } from "@/types/database";
+import DeleteConfirmModal from "@/components/admin/DeleteConfirmModal";
 
 export default function AdminCategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -14,12 +15,27 @@ export default function AdminCategoriesPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", slug: "", description: "", is_active: true });
   const [saving, setSaving] = useState(false);
+  const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const load = async () => {
-    const supabase = createClient();
-    const { data } = await supabase.from("categories").select("*").order("sort_order");
-    setCategories((data as Category[]) || []);
-    setLoading(false);
+    try {
+      const res = await fetch("/api/admin/categories");
+      const json = await res.json();
+      if (json.success) {
+        setCategories((json.data as Category[]) || []);
+      } else {
+        const supabase = createClient();
+        const { data } = await supabase.from("categories").select("*").order("sort_order");
+        setCategories((data as Category[]) || []);
+      }
+    } catch {
+      const supabase = createClient();
+      const { data } = await supabase.from("categories").select("*").order("sort_order");
+      setCategories((data as Category[]) || []);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { load(); }, []);
@@ -27,30 +43,58 @@ export default function AdminCategoriesPage() {
   const handleSave = async () => {
     if (!form.name) { toast.error("Name is required"); return; }
     setSaving(true);
-    const supabase = createClient();
-    const payload = { name: form.name, slug: form.slug || slugify(form.name), description: form.description || null, is_active: form.is_active };
+    const payload = {
+      ...(editingId ? { id: editingId } : {}),
+      name: form.name,
+      slug: form.slug || slugify(form.name),
+      description: form.description || null,
+      is_active: form.is_active,
+      sort_order: categories.length,
+    };
 
-    if (editingId) {
-      await supabase.from("categories").update(payload).eq("id", editingId);
-      toast.success("Category updated");
-    } else {
-      await supabase.from("categories").insert({ ...payload, sort_order: categories.length });
-      toast.success("Category created");
+    try {
+      const res = await fetch("/api/admin/categories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+      if (json.success) {
+        toast.success(editingId ? "Category updated" : "Category created");
+        setForm({ name: "", slug: "", description: "", is_active: true });
+        setShowForm(false);
+        setEditingId(null);
+        load();
+      } else {
+        toast.error(json.error || "Failed to save category");
+      }
+    } catch {
+      toast.error("Failed to save category");
+    } finally {
+      setSaving(false);
     }
-
-    setForm({ name: "", slug: "", description: "", is_active: true });
-    setShowForm(false);
-    setEditingId(null);
-    setSaving(false);
-    load();
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Delete this category?")) return;
-    const supabase = createClient();
-    await supabase.from("categories").delete().eq("id", id);
-    toast.success("Category deleted");
-    load();
+  const confirmDeleteCategory = async () => {
+    if (!categoryToDelete) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/admin/categories?id=${categoryToDelete.id}`, {
+        method: "DELETE",
+      });
+      const json = await res.json();
+      if (json.success) {
+        toast.success("Category deleted");
+        setCategoryToDelete(null);
+        load();
+      } else {
+        toast.error(json.error || "Failed to delete category");
+      }
+    } catch {
+      toast.error("Failed to delete category");
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const handleEdit = (cat: Category) => {
@@ -154,8 +198,12 @@ export default function AdminCategoriesPage() {
                   <button onClick={() => handleEdit(cat)} className="opacity-50 hover:opacity-100 transition-opacity" style={{ fontFamily: "var(--font-inter)", fontSize: "0.6875rem", letterSpacing: "0.12em", textTransform: "uppercase", color: "#172744" }}>
                     EDIT
                   </button>
-                  <button onClick={() => handleDelete(cat.id)} className="opacity-30 hover:opacity-80 hover:text-red-500 transition-all">
-                    <Trash2 size={13} />
+                  <button
+                    onClick={() => setCategoryToDelete(cat)}
+                    className="opacity-30 hover:opacity-80 hover:text-red-500 transition-all p-1"
+                    title="Delete Category"
+                  >
+                    <Trash2 size={14} />
                   </button>
                 </div>
               </li>
@@ -163,6 +211,16 @@ export default function AdminCategoriesPage() {
           </ul>
         )}
       </div>
+
+      <DeleteConfirmModal
+        isOpen={!!categoryToDelete}
+        onClose={() => setCategoryToDelete(null)}
+        onConfirm={confirmDeleteCategory}
+        title="Delete Category"
+        description="Are you sure you want to delete this category? Products currently assigned to this category will remain, but may lose category filtering."
+        itemName={categoryToDelete?.name}
+        isDeleting={deleting}
+      />
     </div>
   );
 }

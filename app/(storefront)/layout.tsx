@@ -10,11 +10,14 @@ export default async function StorefrontLayout({
   children: React.ReactNode;
 }) {
   const settings = await getSiteSettings();
+  const whatsappNumber = settings.whatsapp?.number
+    ? `${settings.whatsapp.country_code || "91"}${settings.whatsapp.number}`.replace(/\D/g, "")
+    : undefined;
 
   return (
     <>
       <AnnouncementBar settings={settings.announcementBar} />
-      <Header whatsappNumber={settings.whatsapp?.number} />
+      <Header whatsappNumber={whatsappNumber} />
       <main className="min-h-screen">{children}</main>
       <Footer
         description={
@@ -23,7 +26,7 @@ export default async function StorefrontLayout({
         newsletterText={
           (settings.footer as { newsletter_text?: string } | null)?.newsletter_text
         }
-        whatsappNumber={settings.whatsapp?.number}
+        whatsappNumber={whatsappNumber}
       />
     </>
   );

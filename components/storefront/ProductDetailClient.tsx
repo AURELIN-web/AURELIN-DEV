@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ChevronRight, MessageCircle, Heart, ShoppingBag, Plus, Minus, Check, ShieldCheck, Truck, RotateCcw } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ChevronRight, MessageCircle, Heart, ShoppingBag, Plus, Minus, Check, ShieldCheck, Truck, RotateCcw, ArrowRight } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 import { useWishlist } from "@/contexts/WishlistContext";
 import { formatPrice, getDiscountPercentage } from "@/lib/utils/format";
@@ -18,23 +19,104 @@ interface Props {
 }
 
 export default function ProductDetailClient({ product, whatsappSettings }: Props) {
-  const [selectedColour, setSelectedColour] = useState<string | null>(
-    product.product_variants?.[0]?.colour ?? null
-  );
-  const [selectedSize, setSelectedSize] = useState<string | null>(
-    product.product_variants?.find((v) => v.is_available && v.stock_quantity > 0)?.size ?? null
-  );
+  const isVariantAvailable = (variant: ProductVariant) =>
+    variant.is_available !== false || (variant.stock_quantity ?? 0) > 0;
+
+  const firstColourWithStock =
+    product.product_variants?.find(
+      (v) => v.colour && v.colour.trim() !== "" && isVariantAvailable(v)
+    )?.colour ??
+    product.product_variants?.find((v) => v.colour && v.colour.trim() !== "")?.colour ??
+    null;
+
+  const firstAvailableSizeForColour = (colour: string | null) =>
+    product.product_variants?.find(
+      (v) =>
+        (!colour || v.colour === colour) &&
+        v.size &&
+        isVariantAvailable(v)
+    )?.size ??
+    product.product_variants?.find((v) => (!colour || v.colour === colour) && v.size)?.size ??
+    null;
+
+  const [selectedColour, setSelectedColour] = useState<string | null>(firstColourWithStock);
+  const [selectedSize, setSelectedSize] = useState<string | null>(() => firstAvailableSizeForColour(firstColourWithStock));
   const [quantity, setQuantity] = useState(1);
   const [activeImage, setActiveImage] = useState(0);
   const [expandedSection, setExpandedSection] = useState<string | null>("description");
   const [isAdding, setIsAdding] = useState(false);
-  const { addItem, openCart } = useCart();
+  const { addItem, openCart, closeCart } = useCart();
   const { isInWishlist, toggleWishlist } = useWishlist();
+  const router = useRouter();
 
-  const images = [
-    ...(product.primary_image_url ? [{ url: product.primary_image_url, alt_text: product.name, id: "primary", sort_order: 0 }] : []),
-    ...(product.product_images?.sort((a, b) => a.sort_order - b.sort_order) || []),
+  const resolveColourImage = (colour: string | null) => {
+    if (!colour) return null;
+
+    const normalized = colour.trim().toLowerCase();
+
+    const variantImage = product.product_variants?.find(
+      (v) => v.colour?.trim().toLowerCase() === normalized && v.image_url
+    )?.image_url;
+
+    if (variantImage) return variantImage;
+
+    const productImage = product.product_images?.find((img) => {
+      const altText = (img.alt_text || "").toLowerCase();
+      return altText.includes(normalized) || altText.includes(normalized.replace(/\s+/g, "-"));
+    })?.url;
+
+    return productImage || null;
+  };
+
+  const selectedColourImage = resolveColourImage(selectedColour);
+
+  const variantGalleryImages = Array.from(
+    new Map(
+      (product.product_variants ?? [])
+        .filter((v): v is ProductVariant & { image_url: string } => Boolean(v.image_url && v.image_url.trim() !== ""))
+        .map((v) => [v.image_url, {
+          url: v.image_url,
+          alt_text: `${v.colour || product.name} ${v.size || ""}`.trim() || product.name,
+          id: `variant-${v.id}`,
+          sort_order: 1,
+        }])
+    ).values()
+  );
+
+  useEffect(() => {
+    setActiveImage(0);
+  }, [selectedColour]);
+
+  useEffect(() => {
+    if (!selectedColour) return;
+    const nextSize = firstAvailableSizeForColour(selectedColour);
+    setSelectedSize((current) => {
+      const availableSizes = (product.product_variants ?? [])
+        .filter((v) => v.colour === selectedColour && v.size)
+        .map((v) => v.size);
+
+      if (current && availableSizes.includes(current)) return current;
+      return nextSize;
+    });
+  }, [selectedColour, product.product_variants]);
+
+  const productImages = [
+    ...(selectedColourImage
+      ? [{ url: selectedColourImage, alt_text: `${selectedColour} ${product.name}`, id: `colour-${selectedColour}`, sort_order: -1 }]
+      : []),
+    ...(product.primary_image_url && selectedColourImage !== product.primary_image_url
+      ? [{ url: product.primary_image_url, alt_text: product.name, id: "primary", sort_order: 0 }]
+      : []),
+    ...variantGalleryImages.filter((img) => img.url !== selectedColourImage && img.url !== product.primary_image_url),
+    ...(product.product_images?.sort((a, b) => a.sort_order - b.sort_order) || []).filter(
+      (img) => img.url !== selectedColourImage && img.url !== product.primary_image_url
+    ),
   ];
+
+  const images = productImages
+    .map((img) => ({ ...img, alt_text: img.alt_text ?? product.name }))
+    .filter((img): img is { url: string; alt_text: string; id: string; sort_order: number } => Boolean(img.url))
+    .filter((img, index, arr) => arr.findIndex((candidate) => candidate.url === img.url) === index);
 
   // Unique colours
   const colours = Array.from(
@@ -44,14 +126,21 @@ export default function ProductDetailClient({ product, whatsappSettings }: Props
   );
 
   // Sizes for selected colour (or all available sizes)
-  const sizesForColour = selectedColour
+  const colourMatchedSizes = selectedColour
     ? (product.product_variants?.filter((v) => v.colour === selectedColour && v.size) ?? [])
+    : [];
+
+  const sizesForColour = colourMatchedSizes.length > 0
+    ? colourMatchedSizes
     : (product.product_variants?.filter((v) => v.size) ?? []);
 
   // Selected variant
   const selectedVariant: ProductVariant | undefined = product.product_variants?.find(
     (v) => (selectedColour ? v.colour === selectedColour : true) && v.size === selectedSize
-  );
+  ) ||
+    product.product_variants?.find((v) => (selectedColour ? v.colour === selectedColour : true) && v.size) ||
+    product.product_variants?.find((v) => v.size === selectedSize) ||
+    product.product_variants?.[0];
 
   const displayPrice = selectedVariant?.price ?? product.sale_price ?? product.price;
   const hasDiscount = product.compare_at_price && product.compare_at_price > displayPrice;
@@ -59,9 +148,11 @@ export default function ProductDetailClient({ product, whatsappSettings }: Props
     ? getDiscountPercentage(product.compare_at_price!, displayPrice)
     : null;
 
+  const hasAnyAvailableVariant = (product.product_variants ?? []).some((v) => isVariantAvailable(v));
+
   const isOutOfStock = selectedVariant
-    ? !selectedVariant.is_available || selectedVariant.stock_quantity === 0
-    : product.stock_quantity === 0;
+    ? !isVariantAvailable(selectedVariant)
+    : !hasAnyAvailableVariant && product.stock_quantity === 0;
 
   const inWishlist = isInWishlist(product.id);
 
@@ -83,13 +174,12 @@ export default function ProductDetailClient({ product, whatsappSettings }: Props
       slug: product.slug,
       price: displayPrice,
       quantity,
-      image: product.primary_image_url,
+      image: selectedVariant?.image_url || selectedColourImage || product.primary_image_url,
       colour: selectedColour,
       size: selectedSize,
       maxStock: selectedVariant?.stock_quantity ?? product.stock_quantity,
     });
 
-    toast.success(`${product.name} added to bag`);
     openCart();
 
     setTimeout(() => {
@@ -97,7 +187,16 @@ export default function ProductDetailClient({ product, whatsappSettings }: Props
     }, 600);
   };
 
-  const handleWhatsApp = async () => {
+  const handleProceedToCheckout = async () => {
+    if (sizesForColour.length > 0 && !selectedSize) {
+      toast.error("Please select a size");
+      return;
+    }
+    if (isOutOfStock) {
+      toast.error("This item is out of stock");
+      return;
+    }
+
     try {
       const supabase = createClient();
       await supabase.from("whatsapp_enquiries").insert({
@@ -108,17 +207,22 @@ export default function ProductDetailClient({ product, whatsappSettings }: Props
       });
     } catch { /* ignore */ }
 
-    const url = buildWhatsAppUrl({
-      whatsappNumber: whatsappSettings?.number || "919645032855",
-      productName: product.name,
+    closeCart();
+
+    addItem({
+      productId: product.id,
+      variantId: selectedVariant?.id ?? null,
+      name: product.name,
+      slug: product.slug,
       price: displayPrice,
-      colour: selectedColour || undefined,
-      size: selectedSize || undefined,
       quantity,
-      productSlug: product.slug,
+      image: selectedVariant?.image_url || selectedColourImage || product.primary_image_url,
+      colour: selectedColour,
+      size: selectedSize,
+      maxStock: selectedVariant?.stock_quantity ?? product.stock_quantity,
     });
 
-    window.open(url, "_blank", "noopener,noreferrer");
+    router.push("/checkout");
   };
 
   const toggleSection = (section: string) => {
@@ -288,34 +392,38 @@ export default function ProductDetailClient({ product, whatsappSettings }: Props
                     type="button"
                     onClick={() => {
                       setSelectedColour(v.colour);
-                      setSelectedSize(null);
                     }}
                     title={v.colour || ""}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-xs border text-xs font-medium transition-all ${
+                    className={`w-8 h-8 rounded-full border-2 transition-all ${
                       selectedColour === v.colour
-                        ? "border-[#172744] bg-[#172744] text-[#F8F6F0] shadow-xs"
-                        : "border-[#D8C8AF] text-[#242424] hover:border-[#172744] bg-white"
+                        ? "border-[#172744] ring-2 ring-[#172744]/15"
+                        : "border-[#D8C8AF] hover:border-[#172744]"
                     }`}
-                  >
-                    {v.colour_hex && (
-                      <span
-                        className="w-3 h-3 rounded-full border border-white/40 flex-shrink-0"
-                        style={{ backgroundColor: v.colour_hex }}
-                      />
-                    )}
-                    <span>{v.colour}</span>
-                  </button>
+                    style={v.colour_hex ? { backgroundColor: v.colour_hex } : undefined}
+                    aria-label={v.colour || "Colour option"}
+                  />
                 ))}
               </div>
             </div>
           )}
 
-          {/* Size Selector */}
+          {/* Size Selector with Live Availability Status */}
           {sizesForColour.length > 0 && (
-            <div className="space-y-2.5">
+            <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold uppercase tracking-widest text-[#172744]">
-                  SIZE: <span className="font-normal text-charcoal/60">{selectedSize || "Select a size"}</span>
+                <span className="text-[11px] font-bold uppercase tracking-widest text-[#172744] flex items-center">
+                  SIZE: <span className="font-semibold text-charcoal ml-1.5">{selectedSize || "Select a size"}</span>
+                  {selectedSize && (
+                    <span
+                      className={`ml-3 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
+                        selectedVariant && isVariantAvailable(selectedVariant)
+                          ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                          : "bg-rose-50 text-rose-700 border border-rose-200"
+                      }`}
+                    >
+                      {selectedVariant && isVariantAvailable(selectedVariant) ? "● In Stock" : "● Stock Out"}
+                    </span>
+                  )}
                 </span>
                 <Link
                   href="/size-guide"
@@ -324,24 +432,41 @@ export default function ProductDetailClient({ product, whatsappSettings }: Props
                   Size Guide
                 </Link>
               </div>
-              <div className="flex flex-wrap gap-2">
+
+              <div className="flex flex-wrap gap-2.5">
                 {sizesForColour.map((v) => {
-                  const unavailable = !v.is_available || v.stock_quantity === 0;
+                  const unavailable = !isVariantAvailable(v);
+                  const isSelected = selectedSize === v.size;
+
                   return (
                     <button
-                      key={v.id}
+                      key={v.id || `${v.size}-${v.colour}`}
                       type="button"
                       onClick={() => !unavailable && setSelectedSize(v.size)}
                       disabled={unavailable}
-                      className={`w-12 h-12 flex items-center justify-center border text-xs font-semibold uppercase tracking-wider rounded-xs transition-all ${
-                        selectedSize === v.size
-                          ? "border-[#172744] bg-[#172744] text-[#F8F6F0] shadow-sm"
+                      title={unavailable ? `${v.size} — Stock Out` : `${v.size} — In Stock`}
+                      className={`min-w-[3.25rem] h-12 px-3 flex flex-col items-center justify-center border rounded-xs transition-all ${
+                        isSelected
+                          ? "border-[#172744] bg-[#172744] text-[#F8F6F0] shadow-sm ring-1 ring-[#172744]"
                           : unavailable
-                          ? "border-[#D8C8AF]/30 text-charcoal/30 cursor-not-allowed line-through bg-gray-50"
+                          ? "border-[#D8C8AF]/40 text-charcoal/30 cursor-not-allowed bg-gray-50/70"
                           : "border-[#D8C8AF] text-[#242424] hover:border-[#172744] bg-white"
                       }`}
                     >
-                      {v.size}
+                      <span className={`text-xs font-semibold uppercase tracking-wider ${unavailable ? "line-through opacity-50" : ""}`}>
+                        {v.size}
+                      </span>
+                      <span
+                        className={`text-[8px] font-bold tracking-tight uppercase mt-0.5 ${
+                          isSelected
+                            ? "text-[#F8F6F0]/80"
+                            : unavailable
+                            ? "text-rose-500 font-semibold"
+                            : "text-emerald-700"
+                        }`}
+                      >
+                        {unavailable ? "Stock Out" : "In Stock"}
+                      </span>
                     </button>
                   );
                 })}
@@ -399,15 +524,14 @@ export default function ProductDetailClient({ product, whatsappSettings }: Props
               )}
             </button>
 
-            {whatsappSettings?.enabled && whatsappSettings.number && (
-              <button
-                type="button"
-                onClick={handleWhatsApp}
-                className="w-full py-3.5 border border-[#172744] text-[#172744] hover:bg-[#172744] hover:text-[#F8F6F0] flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] rounded-xs transition-all"
-              >
-                <MessageCircle size={15} /> Order via WhatsApp Concierge
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={handleProceedToCheckout}
+              disabled={isOutOfStock}
+              className="w-full py-3.5 border border-[#172744] text-[#172744] hover:bg-[#172744] hover:text-[#F8F6F0] flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] rounded-xs transition-all disabled:opacity-40"
+            >
+              Proceed to Checkout <ArrowRight size={14} />
+            </button>
 
             <button
               type="button"

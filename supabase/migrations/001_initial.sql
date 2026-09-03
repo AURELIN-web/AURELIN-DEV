@@ -121,6 +121,7 @@ CREATE TABLE IF NOT EXISTS public.products (
   is_featured           boolean NOT NULL DEFAULT false,
   is_new_arrival        boolean NOT NULL DEFAULT false,
   is_best_seller        boolean NOT NULL DEFAULT false,
+  show_on_storefront    boolean NOT NULL DEFAULT true,
   stock_quantity        int NOT NULL DEFAULT 0 CHECK (stock_quantity >= 0),
   low_stock_threshold   int NOT NULL DEFAULT 5,
   brand                 text DEFAULT 'AURELIN & CO.',
@@ -164,6 +165,7 @@ CREATE TABLE IF NOT EXISTS public.product_variants (
   stock_quantity   int NOT NULL DEFAULT 0 CHECK (stock_quantity >= 0),
   is_available     boolean NOT NULL DEFAULT true,
   image_url        text,
+  show_on_storefront boolean NOT NULL DEFAULT false,
   created_at       timestamptz NOT NULL DEFAULT NOW()
 );
 

@@ -16,8 +16,8 @@ export default function AurelinLogo({
       {/* Decorative top element */}
       <g fill="#172744">
         {/* Small ornamental diamond */}
-        <polygon points="100,2 103,8 100,14 97,8" opacity="0.7" />
-        <line x1="100" y1="14" x2="100" y2="20" stroke="#172744" strokeWidth="0.75" />
+        {/* <polygon points="100,2 103,8 100,14 97,8" opacity="0.7" />
+        <line x1="100" y1="14" x2="100" y2="20" stroke="#172744" strokeWidth="0.75" /> */}
 
         {/* AURELIN */}
         <text
@@ -48,7 +48,7 @@ export default function AurelinLogo({
         </text>
 
         {/* Thin rule */}
-        <line x1="52" y1="58" x2="148" y2="58" stroke="#B9A77A" strokeWidth="0.5" />
+        {/* <line x1="52" y1="58" x2="148" y2="58" stroke="#B9A77A" strokeWidth="0.5" /> */}
 
         {/* MAISON DE L'HOMME */}
         <text

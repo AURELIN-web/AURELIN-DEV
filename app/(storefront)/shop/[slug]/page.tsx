@@ -45,7 +45,7 @@ export default async function CategoryPage({ params }: Props) {
     .eq("status", "published");
 
   return (
-    <div className="container-luxury py-12 md:py-16">
+    <div className="container-luxury py-12 md:py-10">
       <div className="text-center mb-10 md:mb-14">
         <p
           className="mb-3"

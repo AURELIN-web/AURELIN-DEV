@@ -46,13 +46,11 @@ function cartReducer(state: CartState, action: CartAction): CartState {
               ? { ...i, quantity: newQty }
               : i
           ),
-          isOpen: true,
         };
       }
       return {
         ...state,
         items: [...state.items, action.payload],
-        isOpen: true,
       };
     }
 
@@ -152,7 +150,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const addItem = useCallback((item: CartItem) => {
     dispatch({ type: "ADD_ITEM", payload: item });
-    toast.success(`${item.name} added to bag`);
   }, []);
 
   const removeItem = useCallback((productId: string, variantId: string | null) => {

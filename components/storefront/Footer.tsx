@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import AurelinLogo from "./AurelinLogo";
-import { FOOTER_LINKS } from "@/config/site";
+import { FOOTER_LINKS, DEFAULT_WHATSAPP_NUMBER } from "@/config/site";
 
 interface Props {
   description?: string;
@@ -13,7 +13,7 @@ interface Props {
 export default function Footer({
   description = "A modern menswear house shaped by timeless silhouettes, natural fabrics and the belief that true elegance is never excessive.",
   newsletterText = "Private access to new collections, stories and seasonal edits.",
-  whatsappNumber = "919645032855",
+  whatsappNumber = DEFAULT_WHATSAPP_NUMBER,
 }: Props) {
   const year = new Date().getFullYear();
 

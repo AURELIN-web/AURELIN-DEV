@@ -1,7 +1,7 @@
 import { adminGetDashboardStats } from "@/lib/queries";
 import { formatPrice, formatDate } from "@/lib/utils/format";
 import Link from "next/link";
-import { TrendingUp, ShoppingCart, Package, Users, AlertTriangle, MessageCircle, ArrowUpRight, Plus, Film, Image as ImageIcon, Sparkles, Home, Grid3X3, FolderOpen, BookOpen, Settings } from "lucide-react";
+import { TrendingUp, ShoppingCart, Package, AlertTriangle, ArrowUpRight, Plus, Film, Image as ImageIcon, Sparkles, Home, Grid3X3, FolderOpen, BookOpen, Settings } from "lucide-react";
 import OrderStatusBadge from "@/components/admin/OrderStatusBadge";
 
 export const dynamic = "force-dynamic";
@@ -34,22 +34,6 @@ export default async function AdminDashboard() {
       change: "In Catalog",
       color: "text-navy",
       bg: "bg-navy/5",
-    },
-    {
-      label: "CLIENTS",
-      value: stats.customerCount.toString(),
-      icon: Users,
-      change: "Registered",
-      color: "text-navy",
-      bg: "bg-navy/5",
-    },
-    {
-      label: "WHATSAPP LEADS",
-      value: stats.whatsappEnquiries.toString(),
-      icon: MessageCircle,
-      change: "Concierge",
-      color: "text-emerald-700",
-      bg: "bg-emerald-50/50",
     },
   ];
 
@@ -101,7 +85,7 @@ export default async function AdminDashboard() {
       </div>
 
       {/* 1. Stat Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {statCards.map((card) => {
           const Icon = card.icon;
           return (

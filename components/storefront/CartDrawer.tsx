@@ -4,11 +4,18 @@ import { X, Plus, Minus, ShoppingBag, ArrowRight } from "lucide-react";
 import { useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useCart } from "@/contexts/CartContext";
 import { formatPrice } from "@/lib/utils/format";
 
 export default function CartDrawer() {
   const { items, isOpen, closeCart, removeItem, updateQuantity, subtotal } = useCart();
+  const pathname = usePathname();
+
+  // Close on route change
+  useEffect(() => {
+    closeCart();
+  }, [pathname, closeCart]);
 
   // Close on Escape
   useEffect(() => {

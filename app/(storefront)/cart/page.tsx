@@ -36,7 +36,7 @@ export default function CartPage() {
   }
 
   return (
-    <div className="container-luxury py-12 md:py-16">
+    <div className="container-luxury py-12 md:py-10">
       <h1
         className="mb-10"
         style={{ fontFamily: "var(--font-cormorant)", fontSize: "clamp(1.75rem, 3vw, 2.5rem)", fontWeight: 400, color: "#172744" }}
@@ -47,7 +47,7 @@ export default function CartPage() {
       <div className="flex flex-col lg:flex-row gap-12 lg:gap-16">
         {/* Items */}
         <div className="flex-1">
-          <div className="divide-y" style={{ borderColor: "#D8C8AF30" }}>
+          <div className="divide-y border-2 border-[#f0c37b30] px-5 ">
             {items.map((item) => (
               <div key={`${item.productId}-${item.variantId}`} className="flex gap-5 py-6">
                 <div className="relative w-24 h-32 flex-shrink-0 overflow-hidden" style={{ backgroundColor: "#D8C8AF20" }}>

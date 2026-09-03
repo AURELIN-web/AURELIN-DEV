@@ -25,7 +25,7 @@ export default async function AccountPage() {
   ]);
 
   return (
-    <div className="container-luxury py-12 md:py-16">
+    <div className="container-luxury py-12 md:py-10">
       <div className="flex flex-col md:flex-row items-start justify-between gap-4 mb-10 pb-6 border-b border-beige/40">
         <div>
           <p

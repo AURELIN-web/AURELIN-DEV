@@ -69,13 +69,11 @@ export default function HeroVideo({ settings }: Props) {
     setIsMuted(videoRef.current.muted);
   };
 
-  const overlayOpacity = hero.overlay_strength ?? 0.35;
   const hasVideo = !!videoSrc;
 
   return (
     <section
-      className="relative w-full overflow-hidden"
-      style={{ height: "clamp(520px, 82vh, 900px)" }}
+      className="relative w-full overflow-hidden h-[calc(100dvh-61px)] md:h-[calc(100dvh-73px)]"
       aria-label="Hero section"
     >
       {/* Background: Video or Poster Image */}
@@ -105,12 +103,6 @@ export default function HeroVideo({ settings }: Props) {
         /* Brand dark luxury backdrop */
         <div className="absolute inset-0 bg-gradient-to-b from-[#101C32] to-[#172744]" />
       )}
-
-      {/* Overlay */}
-      <div
-        className="absolute inset-0"
-        style={{ backgroundColor: `rgba(16, 28, 50, ${overlayOpacity})` }}
-      />
 
       {/* Content */}
       <div className="relative z-10 flex flex-col justify-end h-full container-luxury pb-12 md:pb-16">

@@ -28,10 +28,21 @@ export async function GET(request: NextRequest) {
 }
 
 // POST /api/admin/products - Create or Update product (Service Role bypasses RLS)
+const supportsStorefrontFlag = async (supabase: any, tableName: "products" | "product_variants") => {
+  try {
+    const { error } = await supabase.from(tableName).select("show_on_storefront").limit(1);
+    return !error;
+  } catch {
+    return false;
+  }
+};
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const supabase = createAdminClient();
+    const productStorefrontFlagEnabled = await supportsStorefrontFlag(supabase, "products");
+    const variantStorefrontFlagEnabled = await supportsStorefrontFlag(supabase, "product_variants");
 
     const {
       id,
@@ -47,6 +58,7 @@ export async function POST(request: NextRequest) {
       is_featured = false,
       is_new_arrival = false,
       is_best_seller = false,
+      show_on_storefront = true,
       stock_quantity = 0,
       low_stock_threshold = 5,
       material,
@@ -56,6 +68,8 @@ export async function POST(request: NextRequest) {
       seo_title,
       seo_description,
       seo_keywords,
+      category_id,
+      category_ids = [],
       primary_image_url,
       variants = [],
       images = [],
@@ -98,6 +112,7 @@ export async function POST(request: NextRequest) {
       is_featured: !!is_featured,
       is_new_arrival: !!is_new_arrival,
       is_best_seller: !!is_best_seller,
+      ...(productStorefrontFlagEnabled ? { show_on_storefront: !!show_on_storefront } : {}),
       stock_quantity: parseInt(stock_quantity, 10) || 0,
       low_stock_threshold: parseInt(low_stock_threshold, 10) || 5,
       material: material || null,
@@ -131,7 +146,27 @@ export async function POST(request: NextRequest) {
       productId = data.id;
     }
 
-    // 2. Persist variants if provided
+    // 2. Persist category association
+    if (productId) {
+      const selectedCategoryIds = Array.from(
+        new Set([
+          ...(Array.isArray(category_ids) ? category_ids.filter(Boolean) : []),
+          ...(category_id ? [category_id] : []),
+        ])
+      );
+
+      await supabase.from("product_categories").delete().eq("product_id", productId);
+
+      if (selectedCategoryIds.length > 0) {
+        const categoryPayloads = selectedCategoryIds.map((catId: string) => ({
+          product_id: productId,
+          category_id: catId,
+        }));
+        await supabase.from("product_categories").insert(categoryPayloads);
+      }
+    }
+
+    // 3. Persist variants if provided
     if (productId) {
       await supabase.from("product_variants").delete().eq("product_id", productId);
 
@@ -145,12 +180,14 @@ export async function POST(request: NextRequest) {
           stock_quantity: parseInt(v.stock_quantity, 10) || 0,
           sku: v.sku || null,
           is_available: v.is_available !== false,
+          image_url: v.image_url || null,
+          ...(variantStorefrontFlagEnabled ? { show_on_storefront: !!v.show_on_storefront } : {}),
         }));
         await supabase.from("product_variants").insert(variantPayloads);
       }
     }
 
-    // 3. Persist product image records
+    // 4. Persist product image records
     if (productId && images.length > 0) {
       await supabase.from("product_images").delete().eq("product_id", productId);
 
