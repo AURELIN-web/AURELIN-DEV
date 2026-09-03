@@ -322,10 +322,15 @@ export default function ProductDetailClient({ product, whatsappSettings }: Props
             )}
 
             {/* Badges */}
-            <div className="absolute top-3.5 left-3.5 flex flex-col gap-1.5 z-10">
+            <div className="absolute top-3.5 left-3.5 flex flex-wrap items-center gap-1.5 z-10 pointer-events-none">
               {product.is_new_arrival && (
                 <span className="px-2.5 py-1 bg-[#B9A77A] text-[#F8F6F0] text-[9px] font-bold uppercase tracking-widest rounded-xs shadow-xs">
                   NEW ARRIVAL
+                </span>
+              )}
+              {product.is_best_seller && (
+                <span className="px-2.5 py-1 bg-[#172744] text-[#F8F6F0] text-[9px] font-bold uppercase tracking-widest rounded-xs shadow-xs">
+                  BEST SELLER
                 </span>
               )}
               {discountPercent && (
@@ -333,6 +338,15 @@ export default function ProductDetailClient({ product, whatsappSettings }: Props
                   -{discountPercent}%
                 </span>
               )}
+              {product.stock_quantity === 0 ? (
+                <span className="px-2.5 py-1 bg-[#242424] text-[#F8F6F0] text-[9px] font-bold uppercase tracking-widest rounded-xs shadow-xs">
+                  SOLD OUT
+                </span>
+              ) : product.low_stock_threshold > 0 && product.stock_quantity <= product.low_stock_threshold && product.stock_quantity > 0 ? (
+                <span className="px-2.5 py-1 bg-[#D8C8AF] text-[#172744] text-[9px] font-bold uppercase tracking-widest rounded-xs shadow-xs">
+                  LOW STOCK
+                </span>
+              ) : null}
             </div>
           </div>
         </div>

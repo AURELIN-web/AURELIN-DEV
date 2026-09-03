@@ -143,10 +143,10 @@ const defaultForm: FormData = {
   sale_price: "",
   status: "published",
   is_featured: false,
-  is_new_arrival: true,
+  is_new_arrival: false,
   is_best_seller: false,
-  stock_quantity: 15,
-  low_stock_threshold: 3,
+  stock_quantity: 50,
+  low_stock_threshold: 0,
   material: "100% European Flax Linen",
   fabric: "Lightweight Breathable Linen (160 GSM)",
   fit: "Relaxed European Tailored Fit",
@@ -171,6 +171,21 @@ export default function ProductFormClient({
   const [form, setForm] = useState<FormData>(initialProduct || defaultForm);
   const [categories, setCategories] = useState<Array<{ id: string; name: string }>>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>(initialProduct?.category_id || "");
+
+  const getInitialBadge = () => {
+    if (initialProduct?.is_new_arrival) return "new";
+    if (initialProduct?.is_best_seller) return "best_seller";
+    if (initialProduct?.stock_quantity === 0) return "sold_out";
+    if (
+      (initialProduct?.low_stock_threshold ?? 0) > 0 &&
+      (initialProduct?.stock_quantity ?? 0) <= (initialProduct?.low_stock_threshold ?? 0)
+    ) {
+      return "low_stock";
+    }
+    return "none";
+  };
+
+  const [selectedBadge, setSelectedBadge] = useState<"none" | "new" | "best_seller" | "low_stock" | "sold_out">(getInitialBadge());
   const [colorGroups, setColorGroups] = useState<ColorGroup[]>(createColorGroups(initialProduct?.variants || []));
   const [customSizeInputs, setCustomSizeInputs] = useState<Record<string, string>>({});
   const [images, setImages] = useState<{ url: string; alt_text?: string }[]>(
@@ -728,23 +743,80 @@ export default function ProductFormClient({
           </div>
         </div>
 
-        {/* Feature Badges (No Emojis) */}
-        <div className="pt-4 border-t border-[#D8C8AF30] flex flex-wrap gap-6">
-          {[
-            { key: "is_new_arrival" as const, label: "New Arrival Badge" },
-            { key: "is_featured" as const, label: "Featured on Homepage" },
-            { key: "is_best_seller" as const, label: "Best Seller Badge" },
-          ].map((b) => (
-            <label key={b.key} className="flex items-center gap-2 cursor-pointer">
+        {/* Storefront Badge Selector */}
+        <div className="pt-6 border-t border-[#D8C8AF40] space-y-4">
+          <div>
+            <label className={labelClass}>Storefront Display Badge</label>
+            <p className="text-[11px] text-charcoal/60 mb-3">
+              Select which promotional badge to display on this product across the shop and product details.
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+              {[
+                { id: "none", label: "No Badge", desc: "Clean photo (Default)", badgeClass: "border-[#D8C8AF] bg-white text-charcoal" },
+                { id: "new", label: "NEW", desc: "Gold 'NEW' badge", badgeClass: "border-[#B9A77A] bg-[#B9A77A]/10 text-[#B9A77A]" },
+                { id: "best_seller", label: "BEST SELLER", desc: "Navy signature badge", badgeClass: "border-[#172744] bg-[#172744]/10 text-[#172744]" },
+                { id: "low_stock", label: "LOW STOCK", desc: "Beige urgency badge", badgeClass: "border-amber-600 bg-amber-50 text-amber-900" },
+                { id: "sold_out", label: "SOLD OUT", desc: "Dark archive badge", badgeClass: "border-neutral-700 bg-neutral-100 text-neutral-800" },
+              ].map((badge) => (
+                <button
+                  key={badge.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedBadge(badge.id as any);
+                    if (badge.id === "new") {
+                      updateField("is_new_arrival", true);
+                      updateField("is_best_seller", false);
+                      updateField("stock_quantity", 50);
+                      updateField("low_stock_threshold", 0);
+                    } else if (badge.id === "best_seller") {
+                      updateField("is_new_arrival", false);
+                      updateField("is_best_seller", true);
+                      updateField("stock_quantity", 50);
+                      updateField("low_stock_threshold", 0);
+                    } else if (badge.id === "low_stock") {
+                      updateField("is_new_arrival", false);
+                      updateField("is_best_seller", false);
+                      updateField("stock_quantity", 2);
+                      updateField("low_stock_threshold", 5);
+                    } else if (badge.id === "sold_out") {
+                      updateField("is_new_arrival", false);
+                      updateField("is_best_seller", false);
+                      updateField("stock_quantity", 0);
+                      updateField("low_stock_threshold", 0);
+                    } else {
+                      updateField("is_new_arrival", false);
+                      updateField("is_best_seller", false);
+                      updateField("stock_quantity", 50);
+                      updateField("low_stock_threshold", 0);
+                    }
+                  }}
+                  className={`p-3 border rounded-sm text-left transition-all cursor-pointer ${
+                    selectedBadge === badge.id
+                      ? "ring-2 ring-[#172744] font-semibold " + badge.badgeClass
+                      : "border-[#D8C8AF]/60 hover:border-[#172744] bg-[#F8F6F0]/30"
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-bold uppercase tracking-wider">{badge.label}</span>
+                    {selectedBadge === badge.id && <span className="w-2 h-2 rounded-full bg-[#172744]" />}
+                  </div>
+                  <p className="text-[10px] text-charcoal/60">{badge.desc}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="pt-3 flex items-center gap-2 cursor-pointer">
+            <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
-                checked={form[b.key]}
-                onChange={(e) => updateField(b.key, e.target.checked)}
+                checked={form.is_featured}
+                onChange={(e) => updateField("is_featured", e.target.checked)}
                 className="w-4 h-4 accent-[#172744] rounded"
               />
-              <span className="text-xs font-medium text-[#242424]">{b.label}</span>
+              <span className="text-xs font-semibold text-[#172744]">Featured on Homepage Curated Showcase</span>
             </label>
-          ))}
+          </div>
         </div>
       </section>
 

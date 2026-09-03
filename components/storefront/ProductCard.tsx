@@ -26,7 +26,10 @@ export default function ProductCard({ product, priority = false }: Props) {
   const discount = hasDiscount
     ? getDiscountPercentage(product.price, product.sale_price!)
     : null;
-  const isLowStock = product.stock_quantity <= product.low_stock_threshold && product.stock_quantity > 0;
+  const isLowStock =
+    product.low_stock_threshold > 0 &&
+    product.stock_quantity <= product.low_stock_threshold &&
+    product.stock_quantity > 0;
   const isOutOfStock = product.stock_quantity === 0;
 
   const storefrontVariant =
@@ -120,45 +123,11 @@ export default function ProductCard({ product, priority = false }: Props) {
           )}
         </Link>
 
-        {/* Stock Badge */}
-        {(isLowStock || isOutOfStock) && (
-          <div className="absolute top-3 left-3 z-10 pointer-events-none">
+        {/* Top-Left Badges Stack (Never overlaps) */}
+        <div className="absolute top-3 left-3 z-10 flex flex-wrap items-center gap-1.5 pointer-events-none">
+          {product.is_new_arrival && (
             <span
-              className="label-uppercase px-2 py-1"
-              style={{
-                fontSize: "0.5625rem",
-                backgroundColor: isOutOfStock ? "#242424" : "#D8C8AF",
-                color: isOutOfStock ? "#F8F6F0" : "#172744",
-                letterSpacing: "0.12em",
-              }}
-            >
-              {isOutOfStock ? "SOLD OUT" : "LOW STOCK"}
-            </span>
-          </div>
-        )}
-
-        {/* Discount Badge */}
-        {discount && (
-          <div className="absolute top-3 left-3 z-10 pointer-events-none">
-            <span
-              className="label-uppercase px-2 py-1"
-              style={{
-                fontSize: "0.5625rem",
-                backgroundColor: "#172744",
-                color: "#F8F6F0",
-                letterSpacing: "0.12em",
-              }}
-            >
-              -{discount}%
-            </span>
-          </div>
-        )}
-
-        {/* New Arrival Badge */}
-        {product.is_new_arrival && !discount && !isOutOfStock && (
-          <div className="absolute top-3 left-3 z-10 pointer-events-none">
-            <span
-              className="label-uppercase px-2 py-1"
+              className="label-uppercase px-2 py-1 shadow-xs"
               style={{
                 fontSize: "0.5625rem",
                 backgroundColor: "#B9A77A",
@@ -168,8 +137,62 @@ export default function ProductCard({ product, priority = false }: Props) {
             >
               NEW
             </span>
-          </div>
-        )}
+          )}
+
+          {product.is_best_seller && (
+            <span
+              className="label-uppercase px-2 py-1 shadow-xs"
+              style={{
+                fontSize: "0.5625rem",
+                backgroundColor: "#172744",
+                color: "#F8F6F0",
+                letterSpacing: "0.12em",
+              }}
+            >
+              BEST SELLER
+            </span>
+          )}
+
+          {discount && (
+            <span
+              className="label-uppercase px-2 py-1 shadow-xs"
+              style={{
+                fontSize: "0.5625rem",
+                backgroundColor: "#172744",
+                color: "#F8F6F0",
+                letterSpacing: "0.12em",
+              }}
+            >
+              -{discount}%
+            </span>
+          )}
+
+          {isOutOfStock ? (
+            <span
+              className="label-uppercase px-2 py-1 shadow-xs"
+              style={{
+                fontSize: "0.5625rem",
+                backgroundColor: "#242424",
+                color: "#F8F6F0",
+                letterSpacing: "0.12em",
+              }}
+            >
+              SOLD OUT
+            </span>
+          ) : isLowStock ? (
+            <span
+              className="label-uppercase px-2 py-1 shadow-xs"
+              style={{
+                fontSize: "0.5625rem",
+                backgroundColor: "#D8C8AF",
+                color: "#172744",
+                letterSpacing: "0.12em",
+              }}
+            >
+              LOW STOCK
+            </span>
+          ) : null}
+        </div>
 
         {/* Wishlist Button on Hover */}
         <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
