@@ -87,7 +87,7 @@ export default function HeroVideo({ settings }: Props) {
           loop={hero.loop}
           playsInline
           poster={hero.poster_image_url || undefined}
-          preload="auto"
+          preload="metadata"
           src={videoSrc}
           onCanPlay={() => setVideoLoaded(true)}
           onError={() => setVideoLoaded(false)}
