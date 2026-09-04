@@ -115,10 +115,12 @@ export default function CheckoutPage() {
       return;
     }
 
-    // Build WhatsApp URL
-    const targetNumber = whatsappSettings?.number
-      ? `${whatsappSettings.country_code || "91"}${whatsappSettings.number}`.replace(/\D/g, "")
-      : undefined;
+    // Build WhatsApp URL — strictly route to official concierge 919645032855
+    const rawNum = whatsappSettings?.number?.trim();
+    const targetNumber =
+      rawNum && rawNum.length >= 10
+        ? `${whatsappSettings?.country_code || "91"}${rawNum}`.replace(/\D/g, "")
+        : "919645032855";
 
     const waUrl = buildWhatsAppOrderUrl({
       whatsappNumber: targetNumber,

@@ -11,9 +11,11 @@ export default async function StorefrontLayout({
   children: React.ReactNode;
 }) {
   const settings = await getSiteSettings();
-  const whatsappNumber = settings.whatsapp?.number
-    ? `${settings.whatsapp.country_code || "91"}${settings.whatsapp.number}`.replace(/\D/g, "")
-    : undefined;
+  const rawNum = settings.whatsapp?.number?.trim();
+  const whatsappNumber =
+    rawNum && rawNum.length >= 10
+      ? `${settings.whatsapp?.country_code || "91"}${rawNum}`.replace(/\D/g, "")
+      : "919645032855";
 
   return (
     <>

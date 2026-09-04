@@ -27,7 +27,7 @@ export default function ContactPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mb-14">
           {[
             { label: "EMAIL", value: "hello@aurelinco.com", href: "mailto:hello@aurelinco.com" },
-            { label: "WHATSAPP CONCIERGE", value: "Available via WhatsApp", href: "#whatsapp" },
+            { label: "WHATSAPP CONCIERGE", value: "+91 96450 32855", href: "https://wa.me/919645032855" },
           ].map((c) => (
             <div key={c.label} className="text-center">
               <p

@@ -225,6 +225,19 @@ export default function ProductDetailClient({ product, whatsappSettings }: Props
     router.push("/checkout");
   };
 
+  const handleWhatsAppOrder = () => {
+    const waUrl = buildWhatsAppUrl({
+      whatsappNumber: "919645032855",
+      productName: product.name,
+      price: displayPrice,
+      colour: selectedColour || undefined,
+      size: selectedSize || undefined,
+      quantity,
+      productSlug: product.slug,
+    });
+    window.open(waUrl, "_blank", "noopener,noreferrer");
+  };
+
   const toggleSection = (section: string) => {
     setExpandedSection(expandedSection === section ? null : section);
   };
@@ -545,6 +558,18 @@ export default function ProductDetailClient({ product, whatsappSettings }: Props
               className="w-full py-3.5 border border-[#172744] text-[#172744] hover:bg-[#172744] hover:text-[#F8F6F0] flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] rounded-xs transition-all disabled:opacity-40"
             >
               Proceed to Checkout <ArrowRight size={14} />
+            </button>
+
+            <button
+              type="button"
+              onClick={handleWhatsAppOrder}
+              disabled={isOutOfStock}
+              className="w-full py-3 bg-[#FAF9F5] border border-[#25D366]/60 hover:border-[#25D366] text-[#172744] hover:bg-[#F0FDF4] flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] rounded-xs transition-all disabled:opacity-40"
+            >
+              <svg className="w-4 h-4 fill-current text-[#25D366]" viewBox="0 0 24 24">
+                <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.006c.106.005.249-.04.39.298.144.347.491 1.2.534 1.287.043.087.072.188.014.304-.058.116-.087.188-.173.289l-.26.304c-.087.086-.177.18-.076.354.101.174.449.741.964 1.201.662.591 1.221.774 1.394.86s.275.072.376-.043c.101-.116.433-.506.549-.68.116-.173.231-.145.39-.087s1.011.477 1.184.564.289.13.332.202c.045.072.045.419-.099.824zm-3.423-14.416c-6.627 0-12 5.373-12 12 0 2.112.551 4.095 1.516 5.823l-1.61 5.882 6.037-1.583c1.668.908 3.58 1.424 5.617 1.424 6.627 0 12-5.373 12-12s-5.373-12-12-12zm0 21.84c-1.897 0-3.664-.527-5.184-1.444l-.372-.224-3.568.936.952-3.48-.246-.391c-1.028-1.637-1.582-3.535-1.582-5.497 0-5.514 4.486-10 10-10s10 4.486 10 10-4.486 10-10 10z"/>
+              </svg>
+              Order via WhatsApp Concierge
             </button>
 
             <button
