@@ -2,7 +2,6 @@
 
 import { useRef, useEffect, useState } from "react";
 import Link from "next/link";
-import { Pause, Play, VolumeX, Volume2, Maximize2 } from "lucide-react";
 import type { HeroSettings } from "@/types/database";
 
 interface Props {
@@ -11,8 +10,6 @@ interface Props {
 
 export default function HeroVideo({ settings }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [isPaused, setIsPaused] = useState(false);
-  const [isMuted, setIsMuted] = useState(true);
   const [videoLoaded, setVideoLoaded] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -64,23 +61,6 @@ export default function HeroVideo({ settings }: Props) {
     }
   }, [videoSrc]);
 
-  const togglePlay = () => {
-    if (!videoRef.current) return;
-    if (videoRef.current.paused) {
-      videoRef.current.play().catch(() => {});
-      setIsPaused(false);
-    } else {
-      videoRef.current.pause();
-      setIsPaused(true);
-    }
-  };
-
-  const toggleMute = () => {
-    if (!videoRef.current) return;
-    videoRef.current.muted = !videoRef.current.muted;
-    setIsMuted(videoRef.current.muted);
-  };
-
   const hasVideo = !!videoSrc;
 
   return (
@@ -95,7 +75,7 @@ export default function HeroVideo({ settings }: Props) {
           key={videoSrc}
           className="absolute inset-0 w-full h-full object-cover object-top"
           autoPlay={hero.autoplay}
-          muted={isMuted}
+          muted
           loop={hero.loop}
           playsInline
           poster={hero.poster_image_url || undefined}
@@ -197,33 +177,6 @@ export default function HeroVideo({ settings }: Props) {
         </div>
       </div>
 
-      {/* Video Controls */}
-      {hasVideo && (
-        <div className="absolute bottom-5 right-5 z-20 flex items-center gap-3">
-          {/* Progress line */}
-          <div className="hidden md:flex items-center gap-2 opacity-70">
-            <div className="w-20 h-px bg-ivory/40" />
-            <div className="w-8 h-px bg-ivory" />
-            <div className="w-12 h-px bg-ivory/40" />
-          </div>
-
-          <button
-            onClick={togglePlay}
-            className="text-ivory/70 hover:text-ivory transition-colors"
-            aria-label={isPaused ? "Play video" : "Pause video"}
-          >
-            {isPaused ? <Play size={16} /> : <Pause size={16} />}
-          </button>
-
-          <button
-            onClick={toggleMute}
-            className="text-ivory/70 hover:text-ivory transition-colors"
-            aria-label={isMuted ? "Unmute video" : "Mute video"}
-          >
-            {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
-          </button>
-        </div>
-      )}
     </section>
   );
 }
