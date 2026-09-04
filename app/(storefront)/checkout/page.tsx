@@ -159,7 +159,6 @@ export default function CheckoutPage() {
     fontFamily: "var(--font-inter)",
     fontSize: "0.875rem",
     color: "#172744",
-    borderColor: "#D8C8AF",
   };
 
   const labelStyle = {
@@ -237,7 +236,7 @@ export default function CheckoutPage() {
         {/* Left: Form */}
         <div className="flex-1 w-full space-y-8">
           {/* Contact Details */}
-          <div className="bg-white border border-[#D8C8AF] p-6 md:p-8 rounded-xs space-y-5 shadow-2xs">
+          <div className="bg-transparent md:bg-white border-0 md:border md:border-[#D8C8AF] p-0 md:p-8 rounded-none md:rounded-xs space-y-5 shadow-none md:shadow-2xs">
             <h2
               className="text-xs font-bold uppercase tracking-[0.18em] text-[#172744] pb-3 border-b border-[#D8C8AF30]"
               style={{ fontFamily: "var(--font-inter)" }}
@@ -253,7 +252,7 @@ export default function CheckoutPage() {
                   value={form.full_name}
                   onChange={(e) => update("full_name", e.target.value)}
                   required
-                  className="w-full px-4 py-3 border rounded-xs outline-none bg-[#F8F6F0]/30 focus:bg-white focus:border-[#172744] transition-colors"
+                  className="w-full px-4 py-3 border-0 md:border md:border-[#D8C8AF] rounded-xs outline-none bg-white md:bg-[#F8F6F0]/30 focus:bg-white focus:ring-1 focus:ring-[#172744] md:focus:ring-0 md:focus:border-[#172744] transition-colors"
                   style={inputStyle}
                 />
               </div>
@@ -265,7 +264,7 @@ export default function CheckoutPage() {
                   value={form.email}
                   onChange={(e) => update("email", e.target.value)}
                   required
-                  className="w-full px-4 py-3 border rounded-xs outline-none bg-[#F8F6F0]/30 focus:bg-white focus:border-[#172744] transition-colors"
+                  className="w-full px-4 py-3 border-0 md:border md:border-[#D8C8AF] rounded-xs outline-none bg-white md:bg-[#F8F6F0]/30 focus:bg-white focus:ring-1 focus:ring-[#172744] md:focus:ring-0 md:focus:border-[#172744] transition-colors"
                   style={inputStyle}
                 />
               </div>
@@ -277,7 +276,7 @@ export default function CheckoutPage() {
                   value={form.phone}
                   onChange={(e) => update("phone", e.target.value)}
                   required
-                  className="w-full px-4 py-3 border rounded-xs outline-none bg-[#F8F6F0]/30 focus:bg-white focus:border-[#172744] transition-colors"
+                  className="w-full px-4 py-3 border-0 md:border md:border-[#D8C8AF] rounded-xs outline-none bg-white md:bg-[#F8F6F0]/30 focus:bg-white focus:ring-1 focus:ring-[#172744] md:focus:ring-0 md:focus:border-[#172744] transition-colors"
                   style={inputStyle}
                 />
               </div>
@@ -285,7 +284,7 @@ export default function CheckoutPage() {
           </div>
 
           {/* Shipping Address */}
-          <div className="bg-white border border-[#D8C8AF] p-6 md:p-8 rounded-xs space-y-5 shadow-2xs">
+          <div className="bg-transparent md:bg-white border-0 md:border md:border-[#D8C8AF] p-0 md:p-8 rounded-none md:rounded-xs space-y-5 shadow-none md:shadow-2xs">
             <h2
               className="text-xs font-bold uppercase tracking-[0.18em] text-[#172744] pb-3 border-b border-[#D8C8AF30]"
               style={{ fontFamily: "var(--font-inter)" }}
@@ -301,7 +300,7 @@ export default function CheckoutPage() {
                   value={form.address_line1}
                   onChange={(e) => update("address_line1", e.target.value)}
                   required
-                  className="w-full px-4 py-3 border rounded-xs outline-none bg-[#F8F6F0]/30 focus:bg-white focus:border-[#172744] transition-colors"
+                  className="w-full px-4 py-3 border-0 md:border md:border-[#D8C8AF] rounded-xs outline-none bg-white md:bg-[#F8F6F0]/30 focus:bg-white focus:ring-1 focus:ring-[#172744] md:focus:ring-0 md:focus:border-[#172744] transition-colors"
                   style={inputStyle}
                 />
               </div>
@@ -312,7 +311,7 @@ export default function CheckoutPage() {
                   placeholder="Near Central Mall"
                   value={form.address_line2}
                   onChange={(e) => update("address_line2", e.target.value)}
-                  className="w-full px-4 py-3 border rounded-xs outline-none bg-[#F8F6F0]/30 focus:bg-white focus:border-[#172744] transition-colors"
+                  className="w-full px-4 py-3 border-0 md:border md:border-[#D8C8AF] rounded-xs outline-none bg-white md:bg-[#F8F6F0]/30 focus:bg-white focus:ring-1 focus:ring-[#172744] md:focus:ring-0 md:focus:border-[#172744] transition-colors"
                   style={inputStyle}
                 />
               </div>
@@ -324,7 +323,7 @@ export default function CheckoutPage() {
                   value={form.city}
                   onChange={(e) => update("city", e.target.value)}
                   required
-                  className="w-full px-4 py-3 border rounded-xs outline-none bg-[#F8F6F0]/30 focus:bg-white focus:border-[#172744] transition-colors"
+                  className="w-full px-4 py-3 border-0 md:border md:border-[#D8C8AF] rounded-xs outline-none bg-white md:bg-[#F8F6F0]/30 focus:bg-white focus:ring-1 focus:ring-[#172744] md:focus:ring-0 md:focus:border-[#172744] transition-colors"
                   style={inputStyle}
                 />
               </div>
@@ -335,7 +334,7 @@ export default function CheckoutPage() {
                   placeholder="Karnataka"
                   value={form.state}
                   onChange={(e) => update("state", e.target.value)}
-                  className="w-full px-4 py-3 border rounded-xs outline-none bg-[#F8F6F0]/30 focus:bg-white focus:border-[#172744] transition-colors"
+                  className="w-full px-4 py-3 border-0 md:border md:border-[#D8C8AF] rounded-xs outline-none bg-white md:bg-[#F8F6F0]/30 focus:bg-white focus:ring-1 focus:ring-[#172744] md:focus:ring-0 md:focus:border-[#172744] transition-colors"
                   style={inputStyle}
                 />
               </div>
@@ -347,7 +346,7 @@ export default function CheckoutPage() {
                   value={form.postal_code}
                   onChange={(e) => update("postal_code", e.target.value)}
                   required
-                  className="w-full px-4 py-3 border rounded-xs outline-none bg-[#F8F6F0]/30 focus:bg-white focus:border-[#172744] transition-colors"
+                  className="w-full px-4 py-3 border-0 md:border md:border-[#D8C8AF] rounded-xs outline-none bg-white md:bg-[#F8F6F0]/30 focus:bg-white focus:ring-1 focus:ring-[#172744] md:focus:ring-0 md:focus:border-[#172744] transition-colors"
                   style={inputStyle}
                 />
               </div>
@@ -357,7 +356,7 @@ export default function CheckoutPage() {
                   type="text"
                   value={form.country}
                   onChange={(e) => update("country", e.target.value)}
-                  className="w-full px-4 py-3 border rounded-xs outline-none bg-[#F8F6F0]/30 focus:bg-white focus:border-[#172744] transition-colors"
+                  className="w-full px-4 py-3 border-0 md:border md:border-[#D8C8AF] rounded-xs outline-none bg-white md:bg-[#F8F6F0]/30 focus:bg-white focus:ring-1 focus:ring-[#172744] md:focus:ring-0 md:focus:border-[#172744] transition-colors"
                   style={inputStyle}
                 />
               </div>
@@ -368,7 +367,7 @@ export default function CheckoutPage() {
                   value={form.notes}
                   onChange={(e) => update("notes", e.target.value)}
                   rows={2}
-                  className="w-full px-4 py-3 border rounded-xs outline-none bg-[#F8F6F0]/30 focus:bg-white focus:border-[#172744] transition-colors resize-none"
+                  className="w-full px-4 py-3 border-0 md:border md:border-[#D8C8AF] rounded-xs outline-none bg-white md:bg-[#F8F6F0]/30 focus:bg-white focus:ring-1 focus:ring-[#172744] md:focus:ring-0 md:focus:border-[#172744] transition-colors resize-none"
                   style={inputStyle}
                 />
               </div>
@@ -437,13 +436,15 @@ export default function CheckoutPage() {
               type="button"
               onClick={handlePlaceOrder}
               disabled={placing}
-              className="w-full py-4 bg-[#172744] hover:bg-[#101C32] text-[#F8F6F0] flex items-center justify-center gap-2.5 text-xs font-semibold uppercase tracking-[0.18em] rounded-xs shadow-md transition-all disabled:opacity-50"
+              className="w-full py-4 px-4 bg-[#172744] hover:bg-[#101C32] text-[#F8F6F0] flex items-center justify-center gap-2 text-[11px] sm:text-xs font-semibold uppercase tracking-[0.06em] sm:tracking-[0.1em] rounded-xs shadow-md transition-all disabled:opacity-50"
             >
               {placing ? (
                 "Processing Order..."
               ) : (
                 <>
-                  <MessageCircle size={16} /> Place Order via WhatsApp <ArrowRight size={14} />
+                  <MessageCircle size={16} className="flex-shrink-0" />
+                  <span>Place Order via WhatsApp</span>
+                  <ArrowRight size={14} className="flex-shrink-0" />
                 </>
               )}
             </button>
