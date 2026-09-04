@@ -49,7 +49,11 @@ export async function uploadToCloudinary(
         try {
           const res = JSON.parse(xhr.responseText);
           if (xhr.status >= 200 && xhr.status < 300 && res.secure_url) {
-            resolve({ success: true, url: res.secure_url });
+            const optimizedUrl =
+              res.secure_url.includes("/upload/") && !res.secure_url.includes("f_auto,q_auto")
+                ? res.secure_url.replace("/upload/", "/upload/f_auto,q_auto/")
+                : res.secure_url;
+            resolve({ success: true, url: optimizedUrl });
           } else {
             resolve({ success: false, error: res?.error?.message || "Upload failed" });
           }

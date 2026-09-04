@@ -4,109 +4,53 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { slugify } from "@/lib/utils/format";
-import { Plus, Trash2, Upload, Save, ArrowLeft, Loader2, Image as ImageIcon } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  Upload,
+  Save,
+  ArrowLeft,
+  Loader2,
+  Image as ImageIcon,
+  Check,
+  Star,
+  Sparkles,
+} from "lucide-react";
 import { uploadToCloudinary } from "@/lib/upload";
 import Link from "next/link";
 import ProductDeleteButton from "./ProductDeleteButton";
 
-const PRODUCT_SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
+const STANDARD_SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
+
+const POPULAR_COLOURS = [
+  { name: "Natural White", hex: "#F8F6F0" },
+  { name: "Deep Navy", hex: "#172744" },
+  { name: "Oatmeal Beige", hex: "#D8C8AF" },
+  { name: "Olive Green", hex: "#556B2F" },
+  { name: "Sage", hex: "#9CAF88" },
+  { name: "Terracotta", hex: "#C86D51" },
+  { name: "Charcoal Black", hex: "#242424" },
+];
 
 interface Variant {
   id?: string;
   size: string;
   colour: string;
-  colour_hex: string;
+  colour_hex?: string;
   price: string;
   stock_quantity: number;
-  sku: string;
+  sku?: string;
   is_available: boolean;
   image_url?: string;
   show_on_storefront?: boolean;
 }
 
-interface SizeEntry {
-  id?: string;
-  size: string;
-  price: string;
-  sku: string;
-  is_available: boolean;
-  stock_quantity: number;
+interface ColourItem {
+  id: string;
+  name: string;
+  hex: string;
   image_url?: string;
 }
-
-interface ColorGroup {
-  id: string;
-  colour: string;
-  colour_hex: string;
-  image_urls: string[];
-  show_on_storefront: boolean;
-  sizes: SizeEntry[];
-}
-
-const makeId = () => `id-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-
-const createColorGroups = (existingVariants: Variant[]): ColorGroup[] => {
-  const groups = new Map<string, ColorGroup>();
-
-  existingVariants.forEach((variant, index) => {
-    const colourName = (variant.colour || "Standard").trim() || "Standard";
-    const key = colourName.toLowerCase();
-
-    if (!groups.has(key)) {
-      groups.set(key, {
-        id: `color-${index}-${key}`,
-        colour: colourName,
-        colour_hex: variant.colour_hex || "#D8C8AF",
-        image_urls: variant.image_url ? [variant.image_url] : [],
-        show_on_storefront: !!variant.show_on_storefront,
-        sizes: [],
-      });
-    }
-
-    const group = groups.get(key)!;
-    const sizeName = (variant.size || "ONE SIZE").trim() || "ONE SIZE";
-
-    group.sizes.push({
-      id: variant.id || makeId(),
-      size: sizeName,
-      price: variant.price?.toString() || "",
-      sku: variant.sku || "",
-      is_available: variant.is_available !== false,
-      stock_quantity: variant.stock_quantity ?? (variant.is_available !== false ? 1 : 0),
-      image_url: variant.image_url || group.image_urls[0] || "",
-    });
-  });
-
-  return Array.from(groups.values());
-};
-
-const flattenColorGroups = (
-  groups: ColorGroup[],
-  fallbackPrice: string,
-  fallbackSku: string,
-  totalStockEnabled: boolean
-): Variant[] =>
-  groups.flatMap((group) =>
-    group.sizes.map((sizeEntry) => {
-      const isAvailable = totalStockEnabled ? sizeEntry.is_available : false;
-      const stockQuantity = totalStockEnabled ? Number(sizeEntry.stock_quantity || 0) : 0;
-
-      return {
-        id: sizeEntry.id,
-        size: sizeEntry.size,
-        colour: group.colour,
-        colour_hex: group.colour_hex,
-        price: sizeEntry.price || fallbackPrice || "149",
-        stock_quantity: stockQuantity,
-        sku:
-          sizeEntry.sku ||
-          (fallbackSku ? `${fallbackSku}-${group.colour}-${sizeEntry.size}` : `${group.colour}-${sizeEntry.size}`),
-        is_available: isAvailable,
-        image_url: group.image_urls[0] || sizeEntry.image_url || "",
-        show_on_storefront: group.show_on_storefront,
-      };
-    })
-  );
 
 interface FormData {
   name: string;
@@ -143,10 +87,10 @@ const defaultForm: FormData = {
   sale_price: "",
   status: "published",
   is_featured: false,
-  is_new_arrival: true,
+  is_new_arrival: false,
   is_best_seller: false,
-  stock_quantity: 15,
-  low_stock_threshold: 3,
+  stock_quantity: 50,
+  low_stock_threshold: 0,
   material: "100% European Flax Linen",
   fabric: "Lightweight Breathable Linen (160 GSM)",
   fit: "Relaxed European Tailored Fit",
@@ -171,8 +115,8 @@ export default function ProductFormClient({
   const [form, setForm] = useState<FormData>(initialProduct || defaultForm);
   const [categories, setCategories] = useState<Array<{ id: string; name: string }>>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>(initialProduct?.category_id || "");
-  const [colorGroups, setColorGroups] = useState<ColorGroup[]>(createColorGroups(initialProduct?.variants || []));
-  const [customSizeInputs, setCustomSizeInputs] = useState<Record<string, string>>({});
+
+  // Media state
   const [images, setImages] = useState<{ url: string; alt_text?: string }[]>(
     initialProduct?.images && initialProduct.images.length > 0
       ? initialProduct.images
@@ -181,7 +125,67 @@ export default function ProductFormClient({
       : []
   );
   const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<string | null>(null);
+
+  // Colours state
+  const initialColours: ColourItem[] = useMemo(() => {
+    if (!initialProduct?.variants || initialProduct.variants.length === 0) {
+      return [{ id: "c-1", name: "Natural White", hex: "#F8F6F0" }];
+    }
+    const map = new Map<string, ColourItem>();
+    initialProduct.variants.forEach((v, idx) => {
+      const col = v.colour || "Standard";
+      if (!map.has(col.toLowerCase())) {
+        map.set(col.toLowerCase(), {
+          id: `c-${idx}-${col}`,
+          name: col,
+          hex: v.colour_hex || "#D8C8AF",
+          image_url: v.image_url,
+        });
+      }
+    });
+    return Array.from(map.values());
+  }, [initialProduct]);
+
+  const [colours, setColours] = useState<ColourItem[]>(initialColours);
+  const [newColourInput, setNewColourInput] = useState("");
+
+  // Sizes state
+  const initialSelectedSizes = useMemo(() => {
+    if (!initialProduct?.variants || initialProduct.variants.length === 0) {
+      return ["S", "M", "L", "XL"];
+    }
+    const set = new Set<string>();
+    initialProduct.variants.forEach((v) => {
+      if (v.size) set.add(v.size);
+    });
+    return Array.from(set);
+  }, [initialProduct]);
+
+  const [selectedSizes, setSelectedSizes] = useState<string[]>(initialSelectedSizes);
+  const [customSizeInput, setCustomSizeInput] = useState("");
+  const [inStock, setInStock] = useState<boolean>(
+    initialProduct ? Number(initialProduct.stock_quantity) > 0 : true
+  );
+
+  // Badge state
+  const getInitialBadge = () => {
+    if (initialProduct?.is_new_arrival) return "new";
+    if (initialProduct?.is_best_seller) return "best_seller";
+    if (initialProduct?.stock_quantity === 0) return "sold_out";
+    if (
+      (initialProduct?.low_stock_threshold ?? 0) > 0 &&
+      (initialProduct?.stock_quantity ?? 0) <= (initialProduct?.low_stock_threshold ?? 0)
+    ) {
+      return "low_stock";
+    }
+    return "none";
+  };
+
+  const [selectedBadge, setSelectedBadge] = useState<"none" | "new" | "best_seller" | "low_stock" | "sold_out">(
+    getInitialBadge()
+  );
+
   const [saving, setSaving] = useState(false);
   const router = useRouter();
 
@@ -194,278 +198,46 @@ export default function ProductFormClient({
           setCategories(data.data);
         }
       } catch {
-        // ignore category load failure
+        // ignore
       }
     };
-
     loadCategories();
   }, []);
 
-  const totalStockEnabled = Number(form.stock_quantity) > 0;
-
-  const variants = useMemo(
-    () => flattenColorGroups(colorGroups, form.price || "149", form.sku || "", totalStockEnabled),
-    [colorGroups, form.price, form.sku, totalStockEnabled]
-  );
-
-  const colorGalleryImages = useMemo(
-    () =>
-      colorGroups.flatMap((group) =>
-        group.image_urls.map((url, index) => ({
-          url,
-          alt_text: `${group.colour} ${index + 1}`,
-        }))
-      ),
-    [colorGroups]
-  );
-
-  const primaryProductImage = useMemo(
-    () => colorGalleryImages[0]?.url || images[0]?.url || initialProduct?.primary_image_url || null,
-    [colorGalleryImages, images, initialProduct?.primary_image_url]
-  );
-
-  const updateField = <K extends keyof FormData>(key: K, value: FormData[K]) => {
-    setForm((prev) => ({
-      ...prev,
-      [key]: value,
-      ...(key === "name" && !initialProduct ? { slug: slugify(value as string) } : {}),
-    }));
-  };
-
-  const addColorGroup = (colourName?: string) => {
-    const nextColour = colourName || `Color ${colorGroups.length + 1}`;
-    const isDuplicate = colorGroups.some((group) => group.colour.toLowerCase() === nextColour.toLowerCase());
-
-    if (isDuplicate) {
-      toast.info(`Color ${nextColour} already exists`);
-      return;
-    }
-
-    setColorGroups((prev) => [
-      ...prev,
-      {
-        id: makeId(),
-        colour: nextColour,
-        colour_hex: "#D8C8AF",
-        image_urls: [],
-        show_on_storefront: prev.length === 0,
-        sizes: [],
-      },
-    ]);
-  };
-
-  const addSizeToColour = (colourName: string, sizeName: string) => {
-    const normalizedSize = sizeName.trim();
-    if (!normalizedSize) return;
-
-    setColorGroups((prev) => {
-      const groupIndex = prev.findIndex((group) => group.colour.toLowerCase() === colourName.toLowerCase());
-
-      if (groupIndex >= 0) {
-        const existingGroup = prev[groupIndex];
-        const hasSize = existingGroup.sizes.some((sizeEntry) => sizeEntry.size.toUpperCase() === normalizedSize.toUpperCase());
-
-        if (hasSize) {
-          toast.info(`${colourName} already contains size ${normalizedSize}`);
-          return prev;
-        }
-
-        return prev.map((group, index) =>
-          index === groupIndex
-            ? {
-                ...group,
-                sizes: [
-                  ...group.sizes,
-                  {
-                    id: makeId(),
-                    size: normalizedSize.toUpperCase(),
-                    price: form.price || "149",
-                    sku: form.sku ? `${form.sku}-${colourName}-${normalizedSize}` : "",
-                    is_available: true,
-                    stock_quantity: 1,
-                  },
-                ],
-              }
-            : group
-        );
+  const updateField = (field: keyof FormData, value: any) => {
+    setForm((prev) => {
+      const next = { ...prev, [field]: value };
+      if (field === "name" && !initialProduct) {
+        next.slug = slugify(value);
       }
-
-      return [
-        ...prev,
-        {
-          id: makeId(),
-          colour: colourName,
-          colour_hex: "#D8C8AF",
-          image_urls: [],
-          show_on_storefront: prev.length === 0,
-          sizes: [
-            {
-              id: makeId(),
-              size: normalizedSize.toUpperCase(),
-              price: form.price || "149",
-              sku: form.sku ? `${form.sku}-${colourName}-${normalizedSize}` : "",
-              is_available: true,
-              stock_quantity: 1,
-            },
-          ],
-        },
-      ];
-    });
-
-    toast.success(`${colourName} - ${normalizedSize.toUpperCase()} added`);
-  };
-
-  const addAllStandardSizesToColour = (colourName: string) => {
-    setColorGroups((prev) => {
-      const groupIndex = prev.findIndex((group) => group.colour.toLowerCase() === colourName.toLowerCase());
-
-      if (groupIndex >= 0) {
-        const existingSizes = new Set(prev[groupIndex].sizes.map((sizeEntry) => sizeEntry.size.toUpperCase()));
-        const sizesToAdd = PRODUCT_SIZES.filter((size) => !existingSizes.has(size));
-
-        if (sizesToAdd.length === 0) {
-          toast.info(`All standard sizes already added for ${colourName}`);
-          return prev;
-        }
-
-        return prev.map((group, index) =>
-          index === groupIndex
-            ? {
-                ...group,
-                sizes: [
-                  ...group.sizes,
-                  ...sizesToAdd.map((size) => ({
-                    id: makeId(),
-                    size,
-                    price: form.price || "149",
-                    sku: form.sku ? `${form.sku}-${colourName}-${size}` : "",
-                    is_available: true,
-                    stock_quantity: 1,
-                  })),
-                ],
-              }
-            : group
-        );
-      }
-
-      return [
-        ...prev,
-        {
-          id: makeId(),
-          colour: colourName,
-          colour_hex: "#D8C8AF",
-          image_urls: [],
-          show_on_storefront: prev.length === 0,
-          sizes: PRODUCT_SIZES.map((size) => ({
-            id: makeId(),
-            size,
-            price: form.price || "149",
-            sku: form.sku ? `${form.sku}-${colourName}-${size}` : "",
-            is_available: true,
-            stock_quantity: 1,
-          })),
-        },
-      ];
-    });
-
-    toast.success(`Added standard sizes for ${colourName}`);
-  };
-
-  const updateSizeEntry = (groupId: string, sizeId: string, key: keyof SizeEntry, value: string | number | boolean) => {
-    setColorGroups((prev) =>
-      prev.map((group) =>
-        group.id === groupId
-          ? {
-              ...group,
-              sizes: group.sizes.map((sizeEntry) =>
-                sizeEntry.id === sizeId ? { ...sizeEntry, [key]: value } : sizeEntry
-              ),
-            }
-          : group
-      )
-    );
-  };
-
-  const removeSizeFromColour = (groupId: string, sizeId: string) => {
-    setColorGroups((prev) =>
-      prev
-        .map((group) =>
-          group.id === groupId
-            ? { ...group, sizes: group.sizes.filter((sizeEntry) => sizeEntry.id !== sizeId) }
-            : group
-        )
-        .filter((group) => group.sizes.length > 0)
-    );
-  };
-
-  const removeColorGroup = (groupId: string) => {
-    setColorGroups((prev) => {
-      const filtered = prev.filter((group) => group.id !== groupId);
-      if (filtered.length > 0 && !filtered.some((group) => group.show_on_storefront)) {
-        filtered[0].show_on_storefront = true;
-      }
-      return filtered;
+      return next;
     });
   };
 
-  const setStorefrontColor = (groupId: string) => {
-    setColorGroups((prev) =>
-      prev.map((group) => ({
-        ...group,
-        show_on_storefront: group.id === groupId,
-      }))
-    );
-  };
-
-  const uploadColorImages = async (groupId: string, files: FileList | null) => {
-    if (!files || files.length === 0) return;
-
-    const uploadedUrls: string[] = [];
-
-    for (const file of Array.from(files)) {
-      const result = await uploadToCloudinary(file, "products", () => undefined);
-      if (result.success && result.url) {
-        uploadedUrls.push(result.url);
-      } else {
-        toast.error(result.error || "Color image upload failed");
-      }
-    }
-
-    if (uploadedUrls.length === 0) return;
-
-    setColorGroups((prev) =>
-      prev.map((group) =>
-        group.id === groupId ? { ...group, image_urls: [...group.image_urls, ...uploadedUrls] } : group
-      )
-    );
-    toast.success(`${uploadedUrls.length} color image${uploadedUrls.length > 1 ? "s" : ""} uploaded`);
-  };
-
-  const removeColorImage = (groupId: string, imageUrl: string) => {
-    setColorGroups((prev) =>
-      prev.map((group) =>
-        group.id === groupId ? { ...group, image_urls: group.image_urls.filter((url) => url !== imageUrl) } : group
-      )
-    );
-  };
-
+  // Image Upload handler
   const handleImageUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
     setUploading(true);
-    setUploadProgress(0);
+    const newImgs: { url: string; alt_text: string }[] = [];
 
-    for (const file of Array.from(files)) {
-      const result = await uploadToCloudinary(file, "products", (percent) => {
-        setUploadProgress(percent);
-      });
-
-      if (result.success && result.url) {
-        setImages((prev) => [...prev, { url: result.url!, alt_text: form.name }]);
-        toast.success("Image uploaded to Cloudinary");
-      } else {
-        toast.error(result.error || "Upload failed");
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      setUploadProgress(`Uploading photo ${i + 1} of ${files.length}...`);
+      try {
+        const res = await uploadToCloudinary(file, "products");
+        if (res.success && res.url) {
+          newImgs.push({ url: res.url, alt_text: form.name || file.name });
+        }
+      } catch (err: any) {
+        toast.error(`Failed to upload ${file.name}: ${err.message}`);
       }
     }
+
+    if (newImgs.length > 0) {
+      setImages((prev) => [...prev, ...newImgs]);
+      toast.success(`Successfully uploaded ${newImgs.length} image${newImgs.length > 1 ? "s" : ""}`);
+    }
+
     setUploading(false);
     setUploadProgress(null);
   };
@@ -476,28 +248,99 @@ export default function ProductFormClient({
       const [selected] = copy.splice(index, 1);
       return [selected, ...copy];
     });
-    toast.success("Set as primary photo");
+    toast.success("Set as primary display photo");
   };
 
   const removeImage = (index: number) => {
     setImages((prev) => prev.filter((_, i) => i !== index));
   };
 
+  // Colour handlers
+  const addColour = (name: string, hex = "#D8C8AF") => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    if (colours.some((c) => c.name.toLowerCase() === trimmed.toLowerCase())) {
+      toast.error(`Colour "${trimmed}" already added`);
+      return;
+    }
+    setColours((prev) => [
+      ...prev,
+      { id: `c-${Date.now()}-${Math.random().toString(16).slice(2)}`, name: trimmed, hex },
+    ]);
+  };
+
+  const removeColour = (id: string) => {
+    if (colours.length <= 1) {
+      toast.error("At least one colour is required");
+      return;
+    }
+    setColours((prev) => prev.filter((c) => c.id !== id));
+  };
+
+  // Size handlers
+  const toggleSize = (size: string) => {
+    setSelectedSizes((prev) =>
+      prev.includes(size) ? prev.filter((s) => s !== size) : [...prev, size]
+    );
+  };
+
+  const addCustomSize = () => {
+    const trimmed = customSizeInput.trim().toUpperCase();
+    if (!trimmed) return;
+    if (!selectedSizes.includes(trimmed)) {
+      setSelectedSizes((prev) => [...prev, trimmed]);
+    }
+    setCustomSizeInput("");
+  };
+
+  // Save handler
   const handleSave = async () => {
     if (!form.name || !form.price) {
       toast.error("Garment name and price are required");
       return;
     }
 
+    if (images.length === 0) {
+      toast.error("Please upload at least one product photo");
+      return;
+    }
+
+    if (selectedSizes.length === 0) {
+      toast.error("Please select at least one available size");
+      return;
+    }
+
     setSaving(true);
 
     try {
+      // Build variants combination from colours and selected sizes
+      const variants: Variant[] = [];
+      colours.forEach((col, cIdx) => {
+        selectedSizes.forEach((sz) => {
+          variants.push({
+            size: sz,
+            colour: col.name,
+            colour_hex: col.hex,
+            price: form.price,
+            stock_quantity: inStock ? 25 : 0,
+            sku: form.sku ? `${form.sku}-${col.name.slice(0, 3).toUpperCase()}-${sz}` : `${col.name}-${sz}`,
+            is_available: inStock,
+            image_url: col.image_url || images[0]?.url || "",
+            show_on_storefront: cIdx === 0,
+          });
+        });
+      });
+
       const payload = {
         ...form,
         id: initialProduct?.id,
         category_id: selectedCategoryId || null,
-        primary_image_url: primaryProductImage,
-        images: colorGalleryImages.length > 0 ? colorGalleryImages : images,
+        primary_image_url: images[0]?.url || null,
+        stock_quantity: inStock ? (selectedBadge === "low_stock" ? 2 : 50) : 0,
+        low_stock_threshold: selectedBadge === "low_stock" ? 5 : 0,
+        is_new_arrival: selectedBadge === "new",
+        is_best_seller: selectedBadge === "best_seller",
+        images,
         variants,
       };
 
@@ -523,17 +366,19 @@ export default function ProductFormClient({
     }
   };
 
-  const inputClass = "w-full px-4 py-2.5 bg-white border border-[#D8C8AF] focus:border-[#172744] focus:ring-1 focus:ring-[#172744] outline-none text-sm text-[#242424] transition-all rounded-sm";
-  const labelClass = "block mb-1.5 text-[11px] font-semibold tracking-wider text-[#172744]/70 uppercase";
+  const inputClass =
+    "w-full px-4 py-2.5 bg-white border border-[#D8C8AF] focus:border-[#172744] focus:ring-1 focus:ring-[#172744] outline-none text-sm text-[#242424] transition-all rounded-xs";
+  const labelClass =
+    "block mb-1.5 text-[11px] font-semibold tracking-wider text-[#172744] uppercase";
 
   return (
-    <div className="space-y-8 max-w-5xl pb-16">
-      {/* Top Header */}
+    <div className="space-y-8 max-w-4xl pb-20">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#D8C8AF40]">
         <div className="flex items-center gap-3">
           <Link
             href="/admin/products"
-            className="p-2 text-[#172744]/60 hover:text-[#172744] hover:bg-white rounded border border-[#D8C8AF] transition-colors"
+            className="p-2 text-[#172744]/60 hover:text-[#172744] hover:bg-white rounded-xs border border-[#D8C8AF] transition-colors"
             title="Back to Products"
           >
             <ArrowLeft size={16} />
@@ -545,55 +390,49 @@ export default function ProductFormClient({
                 fontSize: "2rem",
                 fontWeight: 400,
                 color: "#172744",
-                letterSpacing: "-0.01em",
               }}
             >
               {initialProduct ? `Edit Garment: ${form.name}` : "Add New Garment"}
             </h1>
-            <p className="text-xs text-charcoal/60 mt-0.5" style={{ fontFamily: "var(--font-inter)" }}>
-              Manage pricing, Cloudinary imagery, sizes, colours, and inventory.
+            <p className="text-xs text-charcoal/60 mt-0.5">
+              Easily manage photos, prices, colours, sizes, and storefront badges.
             </p>
           </div>
         </div>
 
-        {/* Top Actions: Status + Save Button */}
-        <div className="flex flex-wrap items-center gap-3">
-     
-
-          {initialProduct?.id && (
-            <ProductDeleteButton
-              productId={initialProduct.id}
-              productName={form.name || "Garment"}
-              variant="button"
-            />
-          )}
-
+        <div className="flex items-center gap-3">
+          <Link
+            href="/admin/products"
+            className="px-5 py-2.5 border border-[#D8C8AF] text-[#172744] text-xs font-semibold uppercase tracking-wider rounded-xs hover:bg-[#F8F6F0] transition-colors"
+          >
+            Cancel
+          </Link>
           <button
             type="button"
             onClick={handleSave}
             disabled={saving}
-            className="inline-flex items-center gap-2 px-6 py-2.5 bg-[#172744] text-[#F8F6F0] hover:bg-[#101C32] text-xs font-semibold uppercase tracking-widest rounded-sm shadow-sm disabled:opacity-50"
+            className="inline-flex items-center gap-2 px-6 py-2.5 bg-[#172744] text-[#F8F6F0] hover:bg-[#101C32] text-xs font-semibold uppercase tracking-widest rounded-xs shadow-sm disabled:opacity-50 transition-all"
           >
             {saving ? (
               <>
-                <Loader2 size={13} className="animate-spin" /> Saving...
+                <Loader2 size={14} className="animate-spin" /> Saving...
               </>
             ) : (
               <>
-                <Save size={13} /> {initialProduct ? "Update Garment" : "Publish Product"}
+                <Save size={14} /> {initialProduct ? "Update Garment" : "Publish Product"}
               </>
             )}
           </button>
         </div>
       </div>
 
-      {/* 1. Core Garment Info */}
-      <section className="bg-white border border-[#D8C8AF] rounded-sm p-6 md:p-8 shadow-sm space-y-6">
-        <h2 className="text-xs font-semibold tracking-widest text-[#172744] uppercase pb-2 border-b border-[#D8C8AF30]">
-          1. BASIC DETAILS
+      {/* 1. Basic Information */}
+      <section className="bg-white border border-[#D8C8AF] rounded-xs p-6 md:p-8 shadow-2xs space-y-6">
+        <h2 className="text-xs font-bold tracking-widest text-[#172744] uppercase pb-2 border-b border-[#D8C8AF30]">
+          1. Basic Details & Pricing
         </h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           <div className="md:col-span-2">
             <label className={labelClass}>Garment Name *</label>
             <input
@@ -607,28 +446,6 @@ export default function ProductFormClient({
           </div>
 
           <div>
-            <label className={labelClass}>SKU / Model Code</label>
-            <input
-              type="text"
-              value={form.sku}
-              onChange={(e) => updateField("sku", e.target.value)}
-              placeholder="e.g. AUR-LIN-001"
-              className={inputClass}
-            />
-          </div>
-
-          <div className="md:col-span-3">
-            <label className={labelClass}>URL Slug</label>
-            <input
-              type="text"
-              value={form.slug}
-              onChange={(e) => updateField("slug", e.target.value)}
-              placeholder="riviera-linen-overshirt"
-              className={`${inputClass} font-mono text-xs`}
-            />
-          </div>
-
-          <div>
             <label className={labelClass}>Category</label>
             <select
               value={selectedCategoryId}
@@ -636,16 +453,50 @@ export default function ProductFormClient({
               className={inputClass}
             >
               <option value="">Select a category</option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
                 </option>
               ))}
             </select>
           </div>
 
+          <div>
+            <label className={labelClass}>Selling Price (₹) *</label>
+            <input
+              type="number"
+              value={form.price}
+              onChange={(e) => updateField("price", e.target.value)}
+              placeholder="4999"
+              className={inputClass}
+              required
+            />
+          </div>
+
+          <div>
+            <label className={labelClass}>Compare / Original Price (₹)</label>
+            <input
+              type="number"
+              value={form.compare_at_price}
+              onChange={(e) => updateField("compare_at_price", e.target.value)}
+              placeholder="6499 (Shows discount if higher)"
+              className={inputClass}
+            />
+          </div>
+
+          <div>
+            <label className={labelClass}>SKU / Item Code</label>
+            <input
+              type="text"
+              value={form.sku}
+              onChange={(e) => updateField("sku", e.target.value)}
+              placeholder="AUR-LIN-01"
+              className={inputClass}
+            />
+          </div>
+
           <div className="md:col-span-3">
-            <label className={labelClass}>Short Tagline / Brief Description</label>
+            <label className={labelClass}>Short Tagline</label>
             <input
               type="text"
               value={form.short_description}
@@ -658,7 +509,7 @@ export default function ProductFormClient({
           <div className="md:col-span-3">
             <label className={labelClass}>Full Product Narrative</label>
             <textarea
-              rows={4}
+              rows={3}
               value={form.description}
               onChange={(e) => updateField("description", e.target.value)}
               placeholder="Describe the silhouette, fabric heritage, and craftsmanship story..."
@@ -668,337 +519,84 @@ export default function ProductFormClient({
         </div>
       </section>
 
-      {/* 2. Pricing & Inventory */}
-      <section className="bg-white border border-[#D8C8AF] rounded-sm p-6 md:p-8 shadow-sm space-y-6">
-        <h2 className="text-xs font-semibold tracking-widest text-[#172744] uppercase pb-2 border-b border-[#D8C8AF30]">
-          2. PRICING & INVENTORY
-        </h2>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* 2. Product Imagery (Cloudinary Upload) */}
+      <section className="bg-white border border-[#D8C8AF] rounded-xs p-6 md:p-8 shadow-2xs space-y-6">
+        <div className="flex items-center justify-between pb-2 border-b border-[#D8C8AF30]">
           <div>
-            <label className={labelClass}>Retail Price ($) *</label>
-            <input
-              type="number"
-              step="0.01"
-              value={form.price}
-              onChange={(e) => updateField("price", e.target.value)}
-              placeholder="185.00"
-              className={inputClass}
-              required
-            />
-          </div>
-
-          <div>
-            <label className={labelClass}>Original / Compare Price ($)</label>
-            <input
-              type="number"
-              step="0.01"
-              value={form.compare_at_price}
-              onChange={(e) => updateField("compare_at_price", e.target.value)}
-              placeholder="220.00 (optional)"
-              className={inputClass}
-            />
-          </div>
-
-          <div>
-            <label className={labelClass}>Sale / Promo Price ($)</label>
-            <input
-              type="number"
-              step="0.01"
-              value={form.sale_price}
-              onChange={(e) => updateField("sale_price", e.target.value)}
-              placeholder="Optional discount price"
-              className={inputClass}
-            />
-          </div>
-
-          <div>
-            <label className={labelClass}>Total Stock Inventory</label>
-            <label className="flex items-center gap-3 px-4 py-3 bg-[#F8F6F0] border border-[#D8C8AF] rounded-sm cursor-pointer w-full min-h-[48px]">
-              <input
-                type="checkbox"
-                checked={Number(form.stock_quantity) > 0}
-                onChange={(e) => updateField("stock_quantity", e.target.checked ? 1 : 0)}
-                className="w-4 h-4 accent-[#172744] rounded"
-              />
-              <span className="text-sm font-medium text-[#242424]">
-                {Number(form.stock_quantity) > 0 ? "In Stock" : "Out of Stock"}
-              </span>
-            </label>
-          </div>
-        </div>
-
-        {/* Feature Badges (No Emojis) */}
-        <div className="pt-4 border-t border-[#D8C8AF30] flex flex-wrap gap-6">
-          {[
-            { key: "is_new_arrival" as const, label: "New Arrival Badge" },
-            { key: "is_featured" as const, label: "Featured on Homepage" },
-            { key: "is_best_seller" as const, label: "Best Seller Badge" },
-          ].map((b) => (
-            <label key={b.key} className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={form[b.key]}
-                onChange={(e) => updateField(b.key, e.target.checked)}
-                className="w-4 h-4 accent-[#172744] rounded"
-              />
-              <span className="text-xs font-medium text-[#242424]">{b.label}</span>
-            </label>
-          ))}
-        </div>
-      </section>
-
-      {/* 4. Color + Size + Stock Availability Management */}
-      <section className="bg-white border border-[#D8C8AF] rounded-sm p-6 md:p-8 shadow-sm space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-[#D8C8AF30]">
-          <div>
-            <h2 className="text-xs font-semibold tracking-widest text-[#172744] uppercase">
-              4. COLOR + SIZE + STOCK
+            <h2 className="text-xs font-bold tracking-widest text-[#172744] uppercase">
+              2. Product Photos & Gallery ({images.length})
             </h2>
-            <p className="text-[11px] text-charcoal/50 mt-0.5">
-              Add multiple colours, assign sizes to each colour, and manage availability independently for every colour and size combination.
+            <p className="text-[11px] text-charcoal/60 mt-0.5">
+              Upload high-resolution editorial photos. The first image will be the primary storefront cover.
             </p>
           </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => addColorGroup()}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#172744] text-[#F8F6F0] text-xs font-semibold uppercase tracking-wider rounded-sm hover:bg-[#101C32] transition-colors"
-            >
-              <Plus size={13} /> Add Color
-            </button>
-          </div>
         </div>
 
-        {colorGroups.length === 0 ? (
-          <div className="p-8 bg-[#F8F6F0] border border-dashed border-[#D8C8AF] rounded text-center space-y-3">
-            <p className="text-xs text-charcoal/60">No colours added yet for this product.</p>
-            <button
-              type="button"
-              onClick={() => addColorGroup()}
-              className="px-4 py-2 bg-[#172744] text-[#F8F6F0] text-xs font-semibold uppercase tracking-wider rounded-sm hover:bg-[#101C32] transition-colors"
-            >
-              + Add First Color
-            </button>
+        {/* Upload Dropzone */}
+        <label className="relative flex flex-col items-center justify-center p-8 border-2 border-dashed border-[#D8C8AF] hover:border-[#172744] bg-[#F8F6F0]/50 hover:bg-[#F8F6F0] rounded-xs cursor-pointer transition-colors group text-center">
+          <div className="w-12 h-12 rounded-full bg-white border border-[#D8C8AF] flex items-center justify-center text-[#172744] group-hover:scale-110 transition-transform mb-3 shadow-2xs">
+            {uploading ? <Loader2 size={20} className="animate-spin" /> : <Upload size={20} />}
           </div>
-        ) : (
-          <div className="space-y-4">
-            {colorGroups.map((group) => (
-              <div key={group.id} className="rounded-sm border border-[#D8C8AF] bg-[#F8F6F0]/60 p-4 space-y-4">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                  <div className="flex items-center gap-3 w-full md:max-w-sm">
-                    <input
-                      type="text"
-                      value={group.colour}
-                      onChange={(e) =>
-                        setColorGroups((prev) =>
-                          prev.map((item) =>
-                            item.id === group.id ? { ...item, colour: e.target.value } : item
-                          )
-                        )
-                      }
-                      placeholder="Colour name"
-                      className="w-full px-3 py-2 bg-white border border-[#D8C8AF] text-sm rounded-sm"
-                    />
-                    <label className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-[#172744]">
-                      <span>Hex</span>
-                      <input
-                        type="color"
-                        value={group.colour_hex}
-                        onChange={(e) =>
-                          setColorGroups((prev) =>
-                            prev.map((item) =>
-                              item.id === group.id ? { ...item, colour_hex: e.target.value } : item
-                            )
-                          )
-                        }
-                        className="w-10 h-10 rounded-sm cursor-pointer"
-                      />
-                    </label>
+          <p className="text-xs font-bold uppercase tracking-wider text-[#172744] mb-1">
+            {uploading ? uploadProgress : "Click to Upload Photos or Drag & Drop"}
+          </p>
+          <p className="text-[11px] text-charcoal/60">
+            JPG, PNG, WebP supported • Direct Cloudinary CDN optimization
+          </p>
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            disabled={uploading}
+            onChange={(e) => handleImageUpload(e.target.files)}
+            className="hidden"
+          />
+        </label>
+
+        {/* Image Grid */}
+        {images.length > 0 && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3 pt-2">
+            {images.map((img, idx) => (
+              <div
+                key={img.url}
+                className={`group relative aspect-[3/4] rounded-xs overflow-hidden border bg-[#F8F6F0] shadow-2xs ${
+                  idx === 0 ? "border-[#B9A77A] ring-2 ring-[#B9A77A]/40" : "border-[#D8C8AF]"
+                }`}
+              >
+                <img
+                  src={img.url}
+                  alt={img.alt_text || `Product photo ${idx + 1}`}
+                  className="w-full h-full object-cover"
+                />
+
+                {/* Primary Photo Badge */}
+                {idx === 0 && (
+                  <div className="absolute top-2 left-2 bg-[#B9A77A] text-[#F8F6F0] text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-2xs shadow-xs flex items-center gap-1">
+                    <Star size={10} fill="currentColor" /> Primary
                   </div>
+                )}
 
-                  <div className="flex flex-wrap items-center gap-2">
-                    <label className="inline-flex items-center gap-2 px-2.5 py-1.5 bg-white border border-[#D8C8AF] rounded-sm cursor-pointer text-[10px] font-semibold uppercase tracking-wider text-[#172744] hover:border-[#172744]">
-                      <input
-                        type="checkbox"
-                        checked={group.show_on_storefront}
-                        onChange={() => setStorefrontColor(group.id)}
-                        className="w-3.5 h-3.5 accent-[#172744] rounded"
-                      />
-                      Card color
-                    </label>
-
-                    <label className="relative inline-flex items-center gap-2 px-2.5 py-1.5 bg-white border border-[#D8C8AF] rounded-sm cursor-pointer text-[10px] font-semibold uppercase tracking-wider text-[#172744] hover:border-[#172744]">
-                      {group.image_urls.length > 0 ? "Upload More" : "Upload Images"}
-                      <Upload size={12} />
-                      <input
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        className="hidden"
-                        onChange={(e) => uploadColorImages(group.id, e.target.files)}
-                      />
-                    </label>
+                {/* Hover Actions */}
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-2">
+                  <div className="flex justify-end">
                     <button
                       type="button"
-                      onClick={() => addAllStandardSizesToColour(group.colour)}
-                      className="px-2.5 py-1.5 bg-white border border-[#D8C8AF] text-[#172744] text-[10px] font-semibold uppercase tracking-wider rounded-sm hover:border-[#172744]"
+                      onClick={() => removeImage(idx)}
+                      className="p-1.5 bg-white/90 hover:bg-white text-rose-600 rounded-xs shadow-xs transition-colors"
+                      title="Delete photo"
                     >
-                      + All Sizes
+                      <Trash2 size={13} />
                     </button>
+                  </div>
+
+                  {idx !== 0 && (
                     <button
                       type="button"
-                      onClick={() => removeColorGroup(group.id)}
-                      className="p-2 text-red-600 hover:bg-red-50 rounded-sm transition-colors"
-                      title="Remove colour"
+                      onClick={() => setPrimaryImage(idx)}
+                      className="w-full py-1.5 bg-white/90 hover:bg-white text-[#172744] text-[10px] font-bold uppercase tracking-wider rounded-xs shadow-xs transition-colors"
                     >
-                      <Trash2 size={15} />
+                      Set as Primary
                     </button>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  {group.image_urls.length > 0 ? (
-                    <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
-                      {group.image_urls.map((imageUrl, index) => (
-                        <div key={`${group.id}-${index}`} className="relative aspect-[3/4] overflow-hidden rounded-sm border border-[#D8C8AF] bg-[#F8F6F0]">
-                          <img src={imageUrl} alt={`${group.colour} uploaded ${index + 1}`} className="w-full h-full object-cover" />
-                          <button
-                            type="button"
-                            onClick={() => removeColorImage(group.id, imageUrl)}
-                            className="absolute top-1.5 right-1.5 p-1 bg-white/90 text-red-600 rounded-sm shadow-sm hover:bg-white"
-                            title="Remove image"
-                          >
-                            <Trash2 size={12} />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="rounded-sm border border-dashed border-[#D8C8AF] bg-[#F8F6F0] p-4 text-center text-[11px] text-charcoal/60">
-                      No color photos uploaded yet.
-                    </div>
-                  )}
-                </div>
-
-                <div className="p-3 bg-white border border-[#D8C8AF]/80 rounded-sm space-y-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#172744]/70 mr-1">
-                      Quick Add Size:
-                    </span>
-                    {PRODUCT_SIZES.map((size) => (
-                      <button
-                        key={size}
-                        type="button"
-                        onClick={() => addSizeToColour(group.colour, size)}
-                        className="px-2.5 py-1 bg-[#F8F6F0] border border-[#D8C8AF] text-[#172744] hover:bg-[#172744] hover:text-[#F8F6F0] font-semibold text-[10px] rounded-sm transition-colors"
-                      >
-                        + {size}
-                      </button>
-                    ))}
-                    <div className="flex items-center gap-1.5 ml-auto min-w-[180px]">
-                      <input
-                        type="text"
-                        value={customSizeInputs[group.id] || ""}
-                        onChange={(e) =>
-                          setCustomSizeInputs((prev) => ({
-                            ...prev,
-                            [group.id]: e.target.value,
-                          }))
-                        }
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" && (customSizeInputs[group.id] || "").trim()) {
-                            e.preventDefault();
-                            addSizeToColour(group.colour, customSizeInputs[group.id]);
-                            setCustomSizeInputs((prev) => ({ ...prev, [group.id]: "" }));
-                          }
-                        }}
-                        placeholder="Custom size"
-                        className="flex-1 px-2.5 py-1.5 text-xs border border-[#D8C8AF] bg-white rounded-sm outline-none"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const value = (customSizeInputs[group.id] || "").trim();
-                          if (!value) return;
-                          addSizeToColour(group.colour, value);
-                          setCustomSizeInputs((prev) => ({ ...prev, [group.id]: "" }));
-                        }}
-                        className="px-3 py-1.5 bg-[#172744] text-white text-[10px] font-semibold uppercase tracking-wider rounded-sm disabled:opacity-40"
-                      >
-                        Add
-                      </button>
-                    </div>
-                  </div>
-
-                  {group.sizes.length === 0 ? (
-                    <div className="rounded-sm border border-dashed border-[#D8C8AF] bg-[#F8F6F0] p-4 text-center text-[11px] text-charcoal/60">
-                      No sizes added for this colour yet.
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {group.sizes.map((sizeEntry) => (
-                        <div
-                          key={sizeEntry.id}
-                          className={`grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-3 items-center p-3 rounded-sm  ${
-                            sizeEntry.is_available
-                              ? "border-gray-100"
-                              : "border-gray-100"
-                          }`}
-                        >
-                          <div>
-                            <label className="text-[10px] font-bold uppercase tracking-wider text-[#172744] block mb-1">
-                              Size
-                            </label>
-                            <input
-                              type="text"
-                              value={sizeEntry.size}
-                              onChange={(e) =>
-                                updateSizeEntry(group.id, sizeEntry.id || "", "size", e.target.value.toUpperCase())
-                              }
-                              className="w-full px-2.5 py-1.5 bg-white border border-[#D8C8AF] text-xs font-semibold uppercase rounded-sm"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="text-[10px] font-bold uppercase tracking-wider text-[#172744] block mb-1">
-                              Availability
-                            </label>
-                            <label
-                              className={`flex items-center gap-2 px-3 py-2 rounded-sm border cursor-pointer select-none transition-colors ${
-                                sizeEntry.is_available
-                                  ? "bg-emerald-50 border-emerald-300 text-emerald-800"
-                                  : "bg-rose-50 border-rose-300 text-rose-800"
-                              }`}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={sizeEntry.is_available}
-                                onChange={(e) =>
-                                  updateSizeEntry(group.id, sizeEntry.id || "", "is_available", e.target.checked)
-                                }
-                                className="w-4 h-4 accent-[#172744] rounded cursor-pointer"
-                              />
-                              <span className="text-xs font-semibold tracking-wide">
-                                {sizeEntry.is_available ? "In Stock" : "Out of Stock"}
-                              </span>
-                            </label>
-                          </div>
-
-                          <div className="flex justify-end">
-                            <button
-                              type="button"
-                              onClick={() => removeSizeFromColour(group.id, sizeEntry.id || "")}
-                              className="p-2 text-red-600 hover:bg-red-50 rounded-sm transition-colors"
-                              title="Remove size"
-                            >
-                              <Trash2 size={15} />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
                   )}
                 </div>
               </div>
@@ -1007,20 +605,308 @@ export default function ProductFormClient({
         )}
       </section>
 
-      {/* 5. Luxury Attributes */}
-      <section className="bg-white border border-[#D8C8AF] rounded-sm p-6 md:p-8 shadow-sm space-y-6">
-        <h2 className="text-xs font-semibold tracking-widest text-[#172744] uppercase pb-2 border-b border-[#D8C8AF30]">
-          5. FABRIC & CARE SPECIFICATIONS
+      {/* 3. Garment Colours */}
+      <section className="bg-white border border-[#D8C8AF] rounded-xs p-6 md:p-8 shadow-2xs space-y-6">
+        <div>
+          <h2 className="text-xs font-bold tracking-widest text-[#172744] uppercase pb-1">
+            3. Garment Colours ({colours.length})
+          </h2>
+          <p className="text-[11px] text-charcoal/60">
+            Add the available colour variations for this piece.
+          </p>
+        </div>
+
+        {/* Quick Add Buttons */}
+        <div className="space-y-2">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-[#172744]/70">
+            Quick Add Common Linen Shades:
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {POPULAR_COLOURS.map((col) => {
+              const alreadyAdded = colours.some(
+                (c) => c.name.toLowerCase() === col.name.toLowerCase()
+              );
+              return (
+                <button
+                  key={col.name}
+                  type="button"
+                  onClick={() => addColour(col.name, col.hex)}
+                  disabled={alreadyAdded}
+                  className={`inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-xs border transition-colors ${
+                    alreadyAdded
+                      ? "border-[#D8C8AF]/40 bg-[#F8F6F0] text-charcoal/40 cursor-not-allowed"
+                      : "border-[#D8C8AF] bg-white text-[#172744] hover:border-[#172744] hover:bg-[#F8F6F0]"
+                  }`}
+                >
+                  <span
+                    className="w-3 h-3 rounded-full border border-black/10"
+                    style={{ backgroundColor: col.hex }}
+                  />
+                  <span>+ {col.name}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Custom Colour Input */}
+        <div className="flex items-center gap-2 max-w-md">
+          <input
+            type="text"
+            value={newColourInput}
+            onChange={(e) => setNewColourInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && newColourInput.trim()) {
+                e.preventDefault();
+                addColour(newColourInput);
+                setNewColourInput("");
+              }
+            }}
+            placeholder="Type custom colour (e.g. Amber Gold)..."
+            className={inputClass}
+          />
+          <button
+            type="button"
+            onClick={() => {
+              if (newColourInput.trim()) {
+                addColour(newColourInput);
+                setNewColourInput("");
+              }
+            }}
+            className="px-4 py-2.5 bg-[#172744] text-[#F8F6F0] text-xs font-bold uppercase tracking-wider rounded-xs hover:bg-[#101C32] transition-colors flex-shrink-0"
+          >
+            Add Colour
+          </button>
+        </div>
+
+        {/* Added Colours List */}
+        <div className="space-y-3 pt-2">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-[#172744]/70">
+            Active Garment Colours:
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            {colours.map((c) => (
+              <div
+                key={c.id}
+                className="flex items-center justify-between gap-3 p-3 bg-[#F8F6F0]/40 border border-[#D8C8AF] rounded-xs"
+              >
+                <div className="flex items-center gap-2.5">
+                  <input
+                    type="color"
+                    value={c.hex}
+                    onChange={(e) => {
+                      const newHex = e.target.value;
+                      setColours((prev) =>
+                        prev.map((item) => (item.id === c.id ? { ...item, hex: newHex } : item))
+                      );
+                    }}
+                    className="w-7 h-7 rounded-xs cursor-pointer border border-black/10"
+                    title="Change swatch color"
+                  />
+                  <span className="text-xs font-semibold text-[#172744]">{c.name}</span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => removeColour(c.id)}
+                  className="p-1.5 text-charcoal/40 hover:text-rose-600 transition-colors"
+                  title="Remove colour"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* 4. Sizes & Stock Availability */}
+      <section className="bg-white border border-[#D8C8AF] rounded-xs p-6 md:p-8 shadow-2xs space-y-6">
+        <div>
+          <h2 className="text-xs font-bold tracking-widest text-[#172744] uppercase pb-1">
+            4. Available Sizes & Inventory Status
+          </h2>
+          <p className="text-[11px] text-charcoal/60">
+            Click to toggle which sizes are available for this garment.
+          </p>
+        </div>
+
+        {/* Size Pills Toggle */}
+        <div className="space-y-3">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-[#172744]/70">
+            Select Available Sizes:
+          </p>
+          <div className="flex flex-wrap gap-2.5">
+            {STANDARD_SIZES.map((sz) => {
+              const isSelected = selectedSizes.includes(sz);
+              return (
+                <button
+                  key={sz}
+                  type="button"
+                  onClick={() => toggleSize(sz)}
+                  className={`min-w-[54px] py-2.5 px-4 text-xs font-bold tracking-wider rounded-xs border transition-all flex items-center justify-center gap-1.5 ${
+                    isSelected
+                      ? "bg-[#172744] text-[#F8F6F0] border-[#172744] shadow-xs"
+                      : "bg-[#F8F6F0]/50 text-charcoal/60 border-[#D8C8AF] hover:border-[#172744] hover:bg-white"
+                  }`}
+                >
+                  {isSelected && <Check size={12} />}
+                  <span>{sz}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Custom Size Input */}
+        <div className="flex items-center gap-2 max-w-xs pt-2">
+          <input
+            type="text"
+            value={customSizeInput}
+            onChange={(e) => setCustomSizeInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && customSizeInput.trim()) {
+                e.preventDefault();
+                addCustomSize();
+              }
+            }}
+            placeholder="Custom size (e.g. 38, Free Size)..."
+            className={inputClass}
+          />
+          <button
+            type="button"
+            onClick={addCustomSize}
+            className="px-3.5 py-2.5 bg-[#172744] text-[#F8F6F0] text-xs font-bold uppercase tracking-wider rounded-xs hover:bg-[#101C32] transition-colors flex-shrink-0"
+          >
+            + Add
+          </button>
+        </div>
+
+        {/* Inventory Master Switch */}
+        <div className="pt-4 border-t border-[#D8C8AF30]">
+          <label className="flex items-center justify-between p-4 bg-[#F8F6F0]/60 border border-[#D8C8AF] rounded-xs cursor-pointer select-none">
+            <div>
+              <p className="text-xs font-bold text-[#172744] uppercase tracking-wider">
+                Overall Stock Availability
+              </p>
+              <p className="text-[11px] text-charcoal/60 mt-0.5">
+                {inStock
+                  ? "Garment is in stock and available for clients to add to bag."
+                  : "Garment is marked as Sold Out."}
+              </p>
+            </div>
+            <input
+              type="checkbox"
+              checked={inStock}
+              onChange={(e) => setInStock(e.target.checked)}
+              className="w-5 h-5 accent-[#172744] rounded cursor-pointer"
+            />
+          </label>
+        </div>
+      </section>
+
+      {/* 5. Storefront Promotional Badge */}
+      <section className="bg-white border border-[#D8C8AF] rounded-xs p-6 md:p-8 shadow-2xs space-y-6">
+        <div>
+          <h2 className="text-xs font-bold tracking-widest text-[#172744] uppercase pb-1">
+            5. Storefront Badge & Highlight
+          </h2>
+          <p className="text-[11px] text-charcoal/60">
+            Select a promotional tag to display on this garment in product grids.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+          {[
+            {
+              id: "none",
+              label: "No Badge",
+              desc: "Clean photo (Default)",
+              badgeClass: "border-[#D8C8AF] bg-white text-charcoal",
+            },
+            {
+              id: "new",
+              label: "NEW",
+              desc: "Gold 'NEW' badge",
+              badgeClass: "border-[#B9A77A] bg-[#B9A77A]/10 text-[#B9A77A]",
+            },
+            {
+              id: "best_seller",
+              label: "BEST SELLER",
+              desc: "Navy signature badge",
+              badgeClass: "border-[#172744] bg-[#172744]/10 text-[#172744]",
+            },
+            {
+              id: "low_stock",
+              label: "LOW STOCK",
+              desc: "Beige urgency badge",
+              badgeClass: "border-amber-600 bg-amber-50 text-amber-900",
+            },
+            {
+              id: "sold_out",
+              label: "SOLD OUT",
+              desc: "Dark archive badge",
+              badgeClass: "border-neutral-700 bg-neutral-100 text-neutral-800",
+            },
+          ].map((badge) => (
+            <button
+              key={badge.id}
+              type="button"
+              onClick={() => {
+                setSelectedBadge(badge.id as any);
+                if (badge.id === "sold_out") {
+                  setInStock(false);
+                } else if (!inStock) {
+                  setInStock(true);
+                }
+              }}
+              className={`p-3.5 border rounded-xs text-left transition-all cursor-pointer ${
+                selectedBadge === badge.id
+                  ? "ring-2 ring-[#172744] font-semibold " + badge.badgeClass
+                  : "border-[#D8C8AF]/60 hover:border-[#172744] bg-[#F8F6F0]/30"
+              }`}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-bold uppercase tracking-wider">{badge.label}</span>
+                {selectedBadge === badge.id && <span className="w-2 h-2 rounded-full bg-[#172744]" />}
+              </div>
+              <p className="text-[10px] text-charcoal/60">{badge.desc}</p>
+            </button>
+          ))}
+        </div>
+
+        <div className="pt-4 border-t border-[#D8C8AF30]">
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.is_featured}
+              onChange={(e) => updateField("is_featured", e.target.checked)}
+              className="w-4 h-4 accent-[#172744] rounded"
+            />
+            <div>
+              <span className="text-xs font-semibold text-[#172744]">Featured on Homepage Curated Showcase</span>
+              <p className="text-[10px] text-charcoal/50">
+                Display this garment in the Signature / Featured pieces gallery on the main storefront.
+              </p>
+            </div>
+          </label>
+        </div>
+      </section>
+
+      {/* 6. Fabric & Care Specifications */}
+      <section className="bg-white border border-[#D8C8AF] rounded-xs p-6 md:p-8 shadow-2xs space-y-6">
+        <h2 className="text-xs font-bold tracking-widest text-[#172744] uppercase pb-2 border-b border-[#D8C8AF30]">
+          6. Fabric & Care Details (Optional)
         </h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           <div>
             <label className={labelClass}>Material Composition</label>
             <input
               type="text"
               value={form.material}
               onChange={(e) => updateField("material", e.target.value)}
-              placeholder="e.g. 100% French Linen"
+              placeholder="e.g. 100% French Flax Linen"
               className={inputClass}
             />
           </div>
@@ -1031,7 +917,7 @@ export default function ProductFormClient({
               type="text"
               value={form.fabric}
               onChange={(e) => updateField("fabric", e.target.value)}
-              placeholder="e.g. 180 GSM Herringbone Weave"
+              placeholder="e.g. 180 GSM Breathable Weave"
               className={inputClass}
             />
           </div>
@@ -1053,19 +939,19 @@ export default function ProductFormClient({
               rows={2}
               value={form.care_instructions}
               onChange={(e) => updateField("care_instructions", e.target.value)}
-              placeholder="e.g. Dry clean recommended or machine wash cold gentle cycle..."
+              placeholder="e.g. Cold gentle machine wash. Hang dry in shade..."
               className={`${inputClass} resize-none`}
             />
           </div>
         </div>
       </section>
 
-      {/* Bottom Action Bar (In Normal Flow - NEVER Covers Content) */}
-      <div className="flex flex-wrap items-center justify-between gap-4 p-6 bg-white border border-[#D8C8AF] rounded-sm shadow-sm">
+      {/* Bottom Save Action Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-4 p-6 bg-white border border-[#D8C8AF] rounded-xs shadow-sm">
         <div className="flex items-center gap-3">
           <Link
             href="/admin/products"
-            className="px-6 py-2.5 border border-[#D8C8AF] text-[#172744] text-xs font-semibold uppercase tracking-wider rounded-sm hover:bg-[#F8F6F0] transition-colors"
+            className="px-6 py-2.5 border border-[#D8C8AF] text-[#172744] text-xs font-semibold uppercase tracking-wider rounded-xs hover:bg-[#F8F6F0] transition-colors"
           >
             Cancel
           </Link>
@@ -1077,11 +963,12 @@ export default function ProductFormClient({
             />
           )}
         </div>
+
         <button
           type="button"
           onClick={handleSave}
           disabled={saving}
-          className="inline-flex items-center gap-2 px-8 py-3 bg-[#172744] text-[#F8F6F0] hover:bg-[#101C32] text-xs font-semibold uppercase tracking-widest rounded-sm shadow-sm disabled:opacity-50"
+          className="inline-flex items-center gap-2 px-8 py-3 bg-[#172744] text-[#F8F6F0] hover:bg-[#101C32] text-xs font-semibold uppercase tracking-widest rounded-xs shadow-sm disabled:opacity-50 transition-all"
         >
           {saving ? (
             <>

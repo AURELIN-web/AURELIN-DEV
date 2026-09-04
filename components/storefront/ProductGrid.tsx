@@ -1,5 +1,6 @@
 import type { Product } from "@/types/database";
 import ProductCard from "./ProductCard";
+import AtelierCuriosityCard from "./AtelierCuriosityCard";
 
 interface Props {
   products: Product[];
@@ -9,27 +10,11 @@ interface Props {
 export default function ProductGrid({ products, columns = 4 }: Props) {
   if (products.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
-        <p
-          style={{
-            fontFamily: "var(--font-cormorant)",
-            fontSize: "1.5rem",
-            fontWeight: 400,
-            color: "#172744",
-          }}
-        >
-          No products found
-        </p>
-        <p
-          style={{
-            fontFamily: "var(--font-inter)",
-            fontSize: "0.875rem",
-            color: "#242424",
-            opacity: 0.5,
-          }}
-        >
-          Check back soon for new arrivals.
-        </p>
+      <div className="py-6">
+        <AtelierCuriosityCard
+          title="New Arrivals Will Be Added Soon"
+          subtitle="Our atelier is currently handcrafting the upcoming seasonal release. Featuring pure European linen, bespoke textures, and relaxed silhouettes."
+        />
       </div>
     );
   }

@@ -36,3 +36,24 @@ export function truncate(text: string, length: number): string {
 export function getDiscountPercentage(original: number, sale: number): number {
   return Math.round(((original - sale) / original) * 100);
 }
+
+/**
+ * Injects Cloudinary automatic video compression (q_auto, vc_auto, resolution limits)
+ * Prevents video streams from consuming excessive bandwidth on free tier.
+ */
+export function optimizeCloudinaryVideoUrl(url?: string | null, isMobile = false): string {
+  if (!url) return "";
+  if (!url.includes("res.cloudinary.com") || url.includes("q_auto")) return url;
+  const transform = isMobile ? "q_auto,vc_auto,w_720" : "q_auto,vc_auto,w_1280";
+  return url.replace("/video/upload/", `/video/upload/${transform}/`);
+}
+
+/**
+ * Injects Cloudinary automatic image compression (f_auto, q_auto)
+ */
+export function optimizeCloudinaryImageUrl(url?: string | null, width?: number): string {
+  if (!url) return "";
+  if (!url.includes("res.cloudinary.com") || url.includes("f_auto,q_auto")) return url;
+  const transform = width ? `f_auto,q_auto,w_${width}` : "f_auto,q_auto";
+  return url.replace("/upload/", `/upload/${transform}/`);
+}

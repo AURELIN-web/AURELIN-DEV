@@ -83,6 +83,11 @@ export default function RootLayout({
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{if(sessionStorage.getItem('aurelin_intro_seen')==='true'){document.documentElement.classList.add('intro-seen');}}catch(e){}`,
+          }}
+        />
       </head>
       <body className="font-body antialiased" suppressHydrationWarning>
         <CartProvider>

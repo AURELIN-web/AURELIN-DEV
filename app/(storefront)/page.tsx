@@ -99,7 +99,7 @@ export default async function HomePage() {
       )}
 
       {/* ——— SIGNATURE PIECES ——— */}
-      {signatureProducts.length > 0 && (
+      {(!sections.length || signatureSection) && (
         <SignaturePiecesSection
           title={signatureSection?.title || "SIGNATURE PIECES"}
           products={signatureProducts}
