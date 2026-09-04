@@ -73,7 +73,7 @@ export default function HeroVideo({ settings }: Props) {
         <video
           ref={videoRef}
           key={videoSrc}
-          className="absolute inset-0 w-full h-full object-cover object-top"
+          className="absolute inset-0 w-full h-full object-cover object-top brightness-[1.12] contrast-[1.04]"
           autoPlay={hero.autoplay}
           muted
           loop={hero.loop}
