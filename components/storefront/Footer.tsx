@@ -302,7 +302,7 @@ export default function Footer({
                 rel="noopener noreferrer"
                 className="text-[#B9A77A] hover:underline font-semibold"
               >
-                Ekodrix (ekodrix.com)
+                Ekodrix
               </a>
             </p>
           </div>
