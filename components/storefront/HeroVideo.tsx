@@ -41,9 +41,21 @@ export default function HeroVideo({ settings }: Props) {
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  const videoSrc = isMobile
+  // Ensure hero video stream is never degraded by aggressive CDN compression
+  const cleanVideoUrl = (url?: string | null): string | null => {
+    if (!url) return null;
+    return url
+      .replace(/\/f_auto,q_auto\//g, "/")
+      .replace(/\/q_auto:[^/]+\//g, "/")
+      .replace(/\/q_auto\//g, "/")
+      .replace(/\/vc_auto\//g, "/");
+  };
+
+  const rawSrc = isMobile
     ? (hero.mobile_video_url || hero.desktop_video_url)
     : hero.desktop_video_url;
+
+  const videoSrc = cleanVideoUrl(rawSrc);
 
   // Auto-play video immediately when source is available
   useEffect(() => {
