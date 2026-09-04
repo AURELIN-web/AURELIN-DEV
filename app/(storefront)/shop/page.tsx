@@ -48,7 +48,9 @@ export default async function ShopPage({
           All Garments
         </h1>
         <p className="text-xs text-charcoal/50 mt-1 uppercase tracking-wider font-medium">
-          {products.length} {products.length === 1 ? "Piece" : "Pieces"} Available
+          {products.length === 0
+            ? "Upcoming Seasonal Drop"
+            : `${products.length} ${products.length === 1 ? "Piece" : "Pieces"} Available`}
         </p>
       </div>
 
