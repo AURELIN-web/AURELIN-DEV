@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 120" width="400" height="120">
+  <defs>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E5D7BF"/>
+      <stop offset="50%" stop-color="#B9A77A"/>
+      <stop offset="100%" stop-color="#D8C8AF"/>
+    </linearGradient>
+  </defs>
+  <g fill="#172744">
+    <text x="200" y="52" text-anchor="middle" font-family="'Cormorant Garamond', 'Georgia', serif" font-size="36" font-weight="500" letter-spacing="14" fill="#172744">AURELIN</text>
+    <text x="200" y="76" text-anchor="middle" font-family="'Cormorant Garamond', 'Georgia', serif" font-size="18" font-weight="400" letter-spacing="8" fill="#172744">&amp; CO.</text>
+    <line x1="120" y1="88" x2="280" y2="88" stroke="#B9A77A" stroke-width="0.75"/>
+    <text x="200" y="104" text-anchor="middle" font-family="'Inter', system-ui, sans-serif" font-size="8" font-weight="400" letter-spacing="5" fill="#172744" opacity="0.75">MAISON DE L'HOMME</text>
+  </g>
+</svg>

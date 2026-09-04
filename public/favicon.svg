@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#172744"/>
+      <stop offset="100%" stop-color="#0E182A"/>
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E5D7BF"/>
+      <stop offset="50%" stop-color="#B9A77A"/>
+      <stop offset="100%" stop-color="#D8C8AF"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Base Luxury Midnight Background -->
+  <rect width="512" height="512" rx="108" fill="url(#bgGrad)"/>
+  
+  <!-- Subtle Champagne Gold Hairline Inner Border -->
+  <rect x="24" y="24" width="464" height="464" rx="88" fill="none" stroke="#B9A77A" stroke-width="3.5" stroke-opacity="0.38"/>
+  
+  <!-- Top Luxury Diamond Spark Star -->
+  <path d="M256 86 L264 114 L292 122 L264 130 L256 158 L248 130 L220 122 L248 114 Z" fill="url(#goldGrad)"/>
+
+  <!-- Iconic Serif 'A' Monogram -->
+  <text x="256" y="364" text-anchor="middle" font-family="'Cormorant Garamond', 'Georgia', serif" font-size="252" font-weight="500" fill="url(#goldGrad)">A</text>
+  
+  <!-- Bottom Minimal Gold Accent Bar -->
+  <rect x="216" y="400" width="80" height="4" rx="2" fill="url(#goldGrad)" opacity="0.85"/>
+</svg>

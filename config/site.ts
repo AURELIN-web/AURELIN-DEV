@@ -1,8 +1,13 @@
 export const SITE_NAME = "AURELIN & CO.";
 export const SITE_TAGLINE = "MAISON DE L'HOMME";
-export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://aurelinco.com";
+export const SITE_URL =
+  process.env.NODE_ENV === "production"
+    ? process.env.NEXT_PUBLIC_SITE_URL && !process.env.NEXT_PUBLIC_SITE_URL.includes("localhost")
+      ? process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, "")
+      : "https://aurelinco.com"
+    : (process.env.NEXT_PUBLIC_SITE_URL || "https://aurelinco.com").replace(/\/$/, "");
 export const SITE_DESCRIPTION =
-  "Premium menswear crafted for the modern gentleman. Discover AURELIN & CO.'s collection of refined linen shirts, tailored essentials and timeless pieces.";
+  "A modern luxury menswear maison shaped by timeless silhouettes, 100% pure European linen, and the belief that true elegance is never excessive. Discover our signature shirts, relaxed tailoring, and limited atelier editions.";
 
 export const DEFAULT_WHATSAPP_NUMBER = process.env.WHATSAPP_NUMBER || "919645032855";
 export const DEFAULT_WHATSAPP_DISPLAY = "+91 96450 32855";
