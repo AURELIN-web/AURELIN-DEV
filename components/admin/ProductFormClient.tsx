@@ -109,12 +109,15 @@ export default function ProductFormClient({
     images?: { url: string; alt_text?: string }[];
     primary_image_url?: string;
     category_id?: string;
+    collection_id?: string;
     show_on_storefront?: boolean;
   };
 }) {
   const [form, setForm] = useState<FormData>(initialProduct || defaultForm);
   const [categories, setCategories] = useState<Array<{ id: string; name: string }>>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>(initialProduct?.category_id || "");
+  const [collections, setCollections] = useState<Array<{ id: string; name: string }>>([]);
+  const [selectedCollectionId, setSelectedCollectionId] = useState<string>(initialProduct?.collection_id || "");
 
   // Media state
   const [images, setImages] = useState<{ url: string; alt_text?: string }[]>(
@@ -201,7 +204,19 @@ export default function ProductFormClient({
         // ignore
       }
     };
+    const loadCollections = async () => {
+      try {
+        const res = await fetch("/api/admin/collections");
+        const data = await res.json();
+        if (res.ok && Array.isArray(data?.data)) {
+          setCollections(data.data);
+        }
+      } catch {
+        // ignore
+      }
+    };
     loadCategories();
+    loadCollections();
   }, []);
 
   const updateField = (field: keyof FormData, value: any) => {
@@ -335,6 +350,7 @@ export default function ProductFormClient({
         ...form,
         id: initialProduct?.id,
         category_id: selectedCategoryId || null,
+        collection_id: selectedCollectionId || null,
         primary_image_url: images[0]?.url || null,
         stock_quantity: inStock ? (selectedBadge === "low_stock" ? 2 : 50) : 0,
         low_stock_threshold: selectedBadge === "low_stock" ? 5 : 0,
@@ -456,6 +472,22 @@ export default function ProductFormClient({
               {categories.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className={labelClass}>Collection</label>
+            <select
+              value={selectedCollectionId}
+              onChange={(e) => setSelectedCollectionId(e.target.value)}
+              className={inputClass}
+            >
+              <option value="">Select a collection</option>
+              {collections.map((col) => (
+                <option key={col.id} value={col.id}>
+                  {col.name}
                 </option>
               ))}
             </select>

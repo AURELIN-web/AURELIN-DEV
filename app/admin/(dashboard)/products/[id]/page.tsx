@@ -16,7 +16,8 @@ export default async function EditProductPage({ params }: Props) {
       *,
       product_variants (*),
       product_images (*),
-      product_categories (category_id)
+      product_categories (category_id),
+      collection_products (collection_id)
     `)
     .eq("id", id)
     .single();
@@ -65,6 +66,7 @@ export default async function EditProductPage({ params }: Props) {
         seo_keywords: product.seo_keywords || "",
         primary_image_url: product.primary_image_url || "",
         category_id: product.product_categories?.[0]?.category_id || "",
+        collection_id: product.collection_products?.[0]?.collection_id || "",
         variants: product.product_variants || [],
         images: initialImages,
       }}

@@ -70,6 +70,7 @@ export async function POST(request: NextRequest) {
       seo_keywords,
       category_id,
       category_ids = [],
+      collection_id,
       primary_image_url,
       variants = [],
       images = [],
@@ -163,6 +164,18 @@ export async function POST(request: NextRequest) {
           category_id: catId,
         }));
         await supabase.from("product_categories").insert(categoryPayloads);
+      }
+    }
+
+    // 2b. Persist collection association
+    if (productId) {
+      await supabase.from("collection_products").delete().eq("product_id", productId);
+      if (collection_id) {
+        await supabase.from("collection_products").insert({
+          collection_id,
+          product_id: productId,
+          sort_order: 0,
+        });
       }
     }
 
