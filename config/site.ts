@@ -29,17 +29,19 @@ export const CURRENCY = {
 
 export const NAV_LINKS = {
   shop: [
-    { label: "New Arrivals", href: "/new-arrivals" },
-    { label: "Best Sellers", href: "/best-sellers" },
+    { label: "New Arrivals", href: "/shop/new-arrivals" },
+    { label: "Best Sellers", href: "/shop/best-sellers" },
     { label: "Shirts", href: "/shop/shirts" },
-    { label: "Linen Collection", href: "/shop/linen-shirts" },
-    { label: "All Collections", href: "/collections" },
+    { label: "Linen Shirts", href: "/shop/linen-shirts" },
+    { label: "Trousers", href: "/shop/trousers" },
+    { label: "T-Shirts", href: "/shop/t-shirts" },
+    { label: "All Products", href: "/shop" },
   ],
   collections: [
+    { label: "The Gentleman's Collections", href: "/collections/the-gentleman-s-collections" },
     { label: "Linen Essentials", href: "/collections/linen-essentials" },
-    { label: "Signature Shirts", href: "/collections/signature-shirts" },
+    { label: "T-Shirts", href: "/collections/t-shirts" },
     { label: "Summer Edit", href: "/collections/summer-edit" },
-    { label: "The Gentleman's Collection", href: "/collections/gentlemans-collection" },
   ],
   about: [
     { label: "Our Story", href: "/about" },
