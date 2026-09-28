@@ -212,24 +212,6 @@ const jsonLd = {
         "https://www.instagram.com/aurelinco",
         "https://www.facebook.com/aurelinco",
       ],
-      hasOfferCatalog: {
-        "@type": "OfferCatalog",
-        name: "AURELIN & CO. Menswear Collection",
-        itemListElement: [
-          {
-            "@type": "Offer",
-            itemOffered: { "@type": "Product", name: "Luxury Linen Shirts", category: "Men's Shirts" },
-          },
-          {
-            "@type": "Offer",
-            itemOffered: { "@type": "Product", name: "Linen Trousers", category: "Men's Trousers" },
-          },
-          {
-            "@type": "Offer",
-            itemOffered: { "@type": "Product", name: "Linen T-Shirts", category: "Men's T-Shirts" },
-          },
-        ],
-      },
     },
     {
       "@type": "WebSite",
