@@ -15,10 +15,40 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const collection = await getCollectionBySlug(slug);
   if (!collection) return { title: "Collection Not Found" };
+
+  const title = collection.seo_title || `${collection.name} Collection`;
+  const description =
+    collection.seo_description ||
+    collection.description ||
+    `Shop the ${collection.name} collection by AURELIN & CO. — luxury linen menswear, handcrafted for the modern gentleman.`;
+  const canonical = `${SITE_URL}/collections/${slug}`;
+  const imageUrl = collection.hero_image_url || `${SITE_URL}/og-image.png`;
+
   return {
-    title: collection.seo_title || collection.name,
-    description: collection.seo_description || collection.description || undefined,
-    alternates: { canonical: `${SITE_URL}/collections/${slug}` },
+    title,
+    description,
+    keywords: [
+      collection.name, "AURELIN & CO.", "luxury linen collection",
+      "premium menswear India", `${collection.name} menswear`,
+    ],
+    alternates: { canonical },
+    robots: { index: true, follow: true, googleBot: { index: true, follow: true, "max-image-preview": "large", "max-snippet": -1 } },
+    openGraph: {
+      type: "website",
+      url: canonical,
+      title: `${title} | AURELIN & CO.`,
+      description,
+      siteName: "AURELIN & CO.",
+      locale: "en_IN",
+      images: [{ url: imageUrl, width: 1200, height: 630, alt: `${collection.name} — AURELIN & CO.` }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${title} | AURELIN & CO.`,
+      description,
+      images: [{ url: imageUrl, alt: `${collection.name} — AURELIN & CO.` }],
+      site: "@aurelinco",
+    },
   };
 }
 
@@ -34,6 +64,36 @@ export default async function CollectionPage({ params }: Props) {
 
   return (
     <div>
+      {/* Collection Structured Data */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@graph": [
+              {
+                "@type": "CollectionPage",
+                "@id": `${SITE_URL}/collections/${slug}/#collectionpage`,
+                url: `${SITE_URL}/collections/${slug}`,
+                name: collection.name,
+                description: collection.description || `${collection.name} collection by AURELIN & CO.`,
+                isPartOf: { "@id": `${SITE_URL}/#website` },
+                about: { "@id": `${SITE_URL}/#organization` },
+                inLanguage: "en-IN",
+              },
+              {
+                "@type": "BreadcrumbList",
+                itemListElement: [
+                  { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
+                  { "@type": "ListItem", position: 2, name: "Collections", item: `${SITE_URL}/collections` },
+                  { "@type": "ListItem", position: 3, name: collection.name, item: `${SITE_URL}/collections/${slug}` },
+                ],
+              },
+            ],
+          }),
+        }}
+      />
+
       {/* Hero */}
       <div
         className="relative py-20 md:py-28 flex items-end justify-start"

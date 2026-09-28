@@ -1,8 +1,13 @@
 import { Metadata } from "next";
+import { SITE_URL } from "@/config/site";
 
 export const metadata: Metadata = {
-  title: "Shipping & Delivery",
-  description: "Information regarding AURELIN & CO. shipping times, domestic and international delivery options.",
+  title: "Shipping & Delivery — India-Wide & International",
+  description: "AURELIN & CO. shipping policy — free domestic delivery on orders above ₹999, secure packaging, tracking, and international shipping options for luxury linen menswear.",
+  keywords: ["AURELIN shipping", "free delivery India", "luxury menswear shipping", "international shipping linen shirts"],
+  alternates: { canonical: `${SITE_URL}/shipping` },
+  robots: { index: true, follow: true },
+  openGraph: { type: "website", url: `${SITE_URL}/shipping`, title: "Shipping & Delivery | AURELIN & CO.", description: "Free domestic delivery on orders above ₹999. Secure luxury packaging.", siteName: "AURELIN & CO.", locale: "en_IN" },
 };
 
 export default function ShippingPage() {

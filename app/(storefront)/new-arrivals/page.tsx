@@ -1,10 +1,16 @@
 import { Metadata } from "next";
 import { getPublishedProducts } from "@/lib/queries";
 import ProductGrid from "@/components/storefront/ProductGrid";
+import { SITE_URL } from "@/config/site";
 
 export const metadata: Metadata = {
-  title: "New Arrivals",
-  description: "Explore the latest additions to the AURELIN & CO. collection of quiet luxury menswear.",
+  title: "New Arrivals — Latest Luxury Linen Drops",
+  description: "Explore the latest additions to AURELIN & CO. — freshly released luxury linen shirts, trousers, and signature menswear pieces, handcrafted with pure European flax.",
+  keywords: ["new arrivals luxury menswear", "latest linen shirts India", "AURELIN new collection", "new luxury menswear drops"],
+  alternates: { canonical: `${SITE_URL}/new-arrivals` },
+  robots: { index: true, follow: true },
+  openGraph: { type: "website", url: `${SITE_URL}/new-arrivals`, title: "New Arrivals | AURELIN & CO.", description: "The latest luxury linen menswear drops.", siteName: "AURELIN & CO.", locale: "en_IN", images: [{ url: `${SITE_URL}/og-image.png`, width: 1200, height: 630 }] },
+  twitter: { card: "summary_large_image", title: "New Arrivals | AURELIN & CO.", images: [`${SITE_URL}/og-image.png`], site: "@aurelinco" },
 };
 
 export const dynamic = "force-dynamic";

@@ -1,6 +1,14 @@
 import { Metadata } from "next";
+import { SITE_URL } from "@/config/site";
 
-export const metadata: Metadata = { title: "Size Guide", description: "AURELIN & CO. size guide for shirts and garments." };
+export const metadata: Metadata = {
+  title: "Size Guide — Shirts, Trousers & Linen Garments",
+  description: "Find your perfect fit with the AURELIN & CO. size guide. Detailed chest, waist, and sleeve measurements for all our linen shirts, trousers, and menswear pieces.",
+  keywords: ["AURELIN size guide", "linen shirt size chart", "men's clothing size guide India", "luxury menswear measurements"],
+  alternates: { canonical: `${SITE_URL}/size-guide` },
+  robots: { index: true, follow: true },
+  openGraph: { type: "website", url: `${SITE_URL}/size-guide`, title: "Size Guide | AURELIN & CO.", description: "Find your perfect fit. Detailed measurements for all garments.", siteName: "AURELIN & CO.", locale: "en_IN" },
+};
 
 export default function SizeGuidePage() {
   return (

@@ -1,8 +1,13 @@
 import { Metadata } from "next";
+import { SITE_URL } from "@/config/site";
 
 export const metadata: Metadata = {
-  title: "Frequently Asked Questions",
-  description: "Answers to common questions about AURELIN & CO. garments, sizing, ordering, and delivery.",
+  title: "Frequently Asked Questions — Sizing, Orders & Delivery",
+  description: "Find answers about AURELIN & CO. luxury linen menswear — fabric quality, sizing, ordering, delivery timelines, exchange policy, and WhatsApp concierge support.",
+  keywords: ["AURELIN FAQ", "linen shirt sizing guide", "luxury menswear ordering", "AURELIN delivery time"],
+  alternates: { canonical: `${SITE_URL}/faq` },
+  robots: { index: true, follow: true },
+  openGraph: { type: "website", url: `${SITE_URL}/faq`, title: "FAQ | AURELIN & CO.", description: "Answers to common questions about our luxury linen menswear.", siteName: "AURELIN & CO.", locale: "en_IN" },
 };
 
 const faqs = [
@@ -29,7 +34,25 @@ const faqs = [
 ];
 
 export default function FAQPage() {
+  const faqSchema = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faqs.map((faq) => ({
+      "@type": "Question",
+      name: faq.q,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: faq.a,
+      },
+    })),
+  };
+
   return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+      />
     <div className="container-luxury py-16 md:py-24">
       <div className="max-w-3xl mx-auto">
         <div className="text-center mb-14">
@@ -77,5 +100,6 @@ export default function FAQPage() {
         </div>
       </div>
     </div>
+    </>
   );
 }

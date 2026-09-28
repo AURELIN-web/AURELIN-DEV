@@ -3,10 +3,34 @@ import { Metadata } from "next";
 import { getPublishedProducts, getActiveCategories } from "@/lib/queries";
 import ProductGrid from "@/components/storefront/ProductGrid";
 import ShopFilters from "@/components/storefront/ShopFilters";
+import { SITE_URL } from "@/config/site";
 
 export const metadata: Metadata = {
-  title: "Shop All — AURELIN & CO.",
-  description: "Browse the complete AURELIN & CO. collection of premium menswear and luxury linen garments.",
+  title: "Shop All — Luxury Linen Menswear",
+  description:
+    "Browse the complete AURELIN & CO. collection. Premium linen shirts, tailored trousers, and signature menswear pieces — pure European flax, handcrafted for the modern gentleman.",
+  keywords: [
+    "shop luxury linen shirts", "buy linen menswear online", "premium menswear India",
+    "linen shirts collection", "AURELIN shop", "luxury men clothing online India",
+  ],
+  alternates: { canonical: `${SITE_URL}/shop` },
+  robots: { index: true, follow: true, googleBot: { index: true, follow: true, "max-snippet": -1, "max-image-preview": "large" } },
+  openGraph: {
+    type: "website",
+    url: `${SITE_URL}/shop`,
+    title: "Shop All — Luxury Linen Menswear | AURELIN & CO.",
+    description: "Browse the complete AURELIN & CO. collection of premium linen menswear.",
+    siteName: "AURELIN & CO.",
+    locale: "en_IN",
+    images: [{ url: `${SITE_URL}/og-image.png`, width: 1200, height: 630, alt: "AURELIN & CO. Shop" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Shop All — Luxury Linen Menswear | AURELIN & CO.",
+    description: "Premium linen shirts, trousers and menswear. Shop AURELIN & CO.",
+    images: [`${SITE_URL}/og-image.png`],
+    site: "@aurelinco",
+  },
 };
 
 export const dynamic = "force-dynamic";

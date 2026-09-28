@@ -1,8 +1,13 @@
 import { Metadata } from "next";
+import { SITE_URL } from "@/config/site";
 
 export const metadata: Metadata = {
-  title: "Garment Care Guide",
-  description: "Preserve the drape, texture, and lifespan of your natural linen and cotton garments.",
+  title: "Linen & Garment Care Guide — Wash, Dry, Iron",
+  description: "Expert care instructions for your AURELIN & CO. linen shirts, trousers, and luxury garments. How to wash, dry, iron, and store natural linen to preserve its drape and texture.",
+  keywords: ["linen care guide", "how to wash linen shirts", "linen ironing tips", "luxury garment care", "AURELIN care instructions"],
+  alternates: { canonical: `${SITE_URL}/care-guide` },
+  robots: { index: true, follow: true },
+  openGraph: { type: "website", url: `${SITE_URL}/care-guide`, title: "Garment Care Guide | AURELIN & CO.", description: "How to preserve the drape and texture of your luxury linen garments.", siteName: "AURELIN & CO.", locale: "en_IN" },
 };
 
 export default function CareGuidePage() {

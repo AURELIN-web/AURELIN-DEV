@@ -66,26 +66,6 @@ export default async function HomePage() {
       {/* ——— HERO ——— */}
       <HeroVideo settings={heroSettings} />
 
-      {/* ——— JSON-LD Organization Schema ——— */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "ClothingStore",
-            name: "AURELIN & CO.",
-            description: SITE_DESCRIPTION,
-            url: SITE_URL,
-            logo: `${SITE_URL}/logo.svg`,
-            address: {
-              "@type": "PostalAddress",
-              addressCountry: "IN",
-            },
-            sameAs: [],
-          }),
-        }}
-      />
-
       {/* ——— COLLECTION GRID ——— */}
       {collectionTiles.length > 0 && (
         <CollectionGridSection

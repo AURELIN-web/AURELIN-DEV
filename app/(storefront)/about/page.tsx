@@ -1,8 +1,32 @@
 import { Metadata } from "next";
+import { SITE_URL } from "@/config/site";
 
 export const metadata: Metadata = {
-  title: "About",
-  description: "The story of AURELIN & CO. — a modern menswear house shaped by timeless silhouettes, natural fabrics and the belief that true elegance is never excessive.",
+  title: "Our Story — A Modern Menswear House",
+  description:
+    "The story of AURELIN & CO. — a luxury menswear maison shaped by timeless silhouettes, pure European linen, and the belief that true elegance is never excessive. Founded in India.",
+  keywords: [
+    "AURELIN & CO. story", "luxury menswear brand India", "about Aurelin",
+    "atelier menswear brand", "sustainable linen brand", "Indian luxury fashion brand",
+  ],
+  alternates: { canonical: `${SITE_URL}/about` },
+  robots: { index: true, follow: true },
+  openGraph: {
+    type: "website",
+    url: `${SITE_URL}/about`,
+    title: "Our Story — AURELIN & CO.",
+    description: "A luxury menswear maison shaped by timeless silhouettes and pure European linen.",
+    siteName: "AURELIN & CO.",
+    locale: "en_IN",
+    images: [{ url: `${SITE_URL}/og-image.png`, width: 1200, height: 630, alt: "AURELIN & CO. — Our Story" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Our Story — AURELIN & CO.",
+    description: "A luxury menswear maison shaped by timeless silhouettes and pure European linen.",
+    images: [`${SITE_URL}/og-image.png`],
+    site: "@aurelinco",
+  },
 };
 
 export default function AboutPage() {

@@ -1,9 +1,21 @@
 import { Metadata } from "next";
 import ContactFormClient from "@/components/storefront/ContactFormClient";
+import { SITE_URL } from "@/config/site";
 
 export const metadata: Metadata = {
-  title: "Contact",
-  description: "Get in touch with AURELIN & CO. via email, phone, or WhatsApp concierge.",
+  title: "Contact Us — WhatsApp Concierge & Support",
+  description: "Get in touch with AURELIN & CO. via WhatsApp concierge, email, or phone. Our luxury styling team is available to assist with sizing, orders, and bespoke requests.",
+  keywords: ["contact AURELIN & CO.", "luxury menswear customer support", "WhatsApp styling concierge", "AURELIN phone number"],
+  alternates: { canonical: `${SITE_URL}/contact` },
+  robots: { index: true, follow: true },
+  openGraph: {
+    type: "website",
+    url: `${SITE_URL}/contact`,
+    title: "Contact Us | AURELIN & CO.",
+    description: "Reach our WhatsApp concierge or styling team for any assistance.",
+    siteName: "AURELIN & CO.",
+    locale: "en_IN",
+  },
 };
 
 export default function ContactPage() {

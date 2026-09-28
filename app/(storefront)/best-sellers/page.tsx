@@ -1,10 +1,16 @@
 import { Metadata } from "next";
 import { getPublishedProducts } from "@/lib/queries";
 import ProductGrid from "@/components/storefront/ProductGrid";
+import { SITE_URL } from "@/config/site";
 
 export const metadata: Metadata = {
-  title: "Best Sellers",
-  description: "Our most coveted linen shirts and tailored pieces, celebrated for craftsmanship and effortless drape.",
+  title: "Best Sellers — Most-Loved Linen Menswear",
+  description: "Shop AURELIN & CO.'s most coveted pieces — our best-selling luxury linen shirts and tailored garments, celebrated for exceptional craftsmanship and effortless drape.",
+  keywords: ["best selling linen shirts India", "most popular luxury menswear", "AURELIN best sellers", "top rated linen shirts"],
+  alternates: { canonical: `${SITE_URL}/best-sellers` },
+  robots: { index: true, follow: true },
+  openGraph: { type: "website", url: `${SITE_URL}/best-sellers`, title: "Best Sellers | AURELIN & CO.", description: "Our most coveted luxury linen pieces.", siteName: "AURELIN & CO.", locale: "en_IN", images: [{ url: `${SITE_URL}/og-image.png`, width: 1200, height: 630 }] },
+  twitter: { card: "summary_large_image", title: "Best Sellers | AURELIN & CO.", images: [`${SITE_URL}/og-image.png`], site: "@aurelinco" },
 };
 
 export const dynamic = "force-dynamic";

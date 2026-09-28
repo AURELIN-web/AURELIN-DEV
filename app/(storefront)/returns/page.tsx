@@ -1,8 +1,13 @@
 import { Metadata } from "next";
+import { SITE_URL } from "@/config/site";
 
 export const metadata: Metadata = {
-  title: "Exchanges & Returns",
-  description: "Our 30-day exchange and returns policy for AURELIN & CO. garments.",
+  title: "Exchanges & Returns — 7-Day Hassle-Free Policy",
+  description: "AURELIN & CO. exchange and returns policy — easy 7-day returns on unworn garments, free return shipping, and dedicated WhatsApp support for exchanges.",
+  keywords: ["AURELIN returns", "exchange policy luxury menswear", "7-day return India", "AURELIN refund"],
+  alternates: { canonical: `${SITE_URL}/returns` },
+  robots: { index: true, follow: true },
+  openGraph: { type: "website", url: `${SITE_URL}/returns`, title: "Exchanges & Returns | AURELIN & CO.", description: "Easy 7-day returns. Free return shipping. WhatsApp exchange support.", siteName: "AURELIN & CO.", locale: "en_IN" },
 };
 
 export default function ReturnsPage() {
