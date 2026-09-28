@@ -14,28 +14,92 @@ export async function getPublishedProducts(options?: {
   bestSeller?: boolean;
   categorySlug?: string;
   collectionSlug?: string;
+  sortBy?: string;
+  size?: string;
 }) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
-  let query = supabase
-    .from("products")
-    .select(`
-      *,
-      product_variants (*),
-      product_images (*)
-    `)
-    .eq("status", "published")
-    .order("created_at", { ascending: false });
+  let categoryId: string | null = null;
+  if (
+    options?.categorySlug &&
+    options.categorySlug !== "new-arrivals" &&
+    options.categorySlug !== "best-sellers"
+  ) {
+    const { data: cat } = await supabase
+      .from("categories")
+      .select("id")
+      .eq("slug", options.categorySlug)
+      .eq("is_active", true)
+      .maybeSingle();
+    categoryId = cat?.id || null;
+  }
+
+  let query;
+  if (categoryId) {
+    query = supabase
+      .from("products")
+      .select(`
+        *,
+        product_variants (*),
+        product_images (*),
+        product_categories!inner (category_id)
+      `)
+      .eq("product_categories.category_id", categoryId)
+      .eq("status", "published");
+  } else if (options?.collectionSlug) {
+    const { data: col } = await supabase
+      .from("collections")
+      .select("id")
+      .eq("slug", options.collectionSlug)
+      .eq("is_active", true)
+      .maybeSingle();
+    if (col) {
+      query = supabase
+        .from("products")
+        .select(`
+          *,
+          product_variants (*),
+          product_images (*),
+          collection_products!inner (collection_id)
+        `)
+        .eq("collection_products.collection_id", col.id)
+        .eq("status", "published");
+    } else {
+      query = supabase
+        .from("products")
+        .select(`
+          *,
+          product_variants (*),
+          product_images (*)
+        `)
+        .eq("status", "published");
+    }
+  } else {
+    query = supabase
+      .from("products")
+      .select(`
+        *,
+        product_variants (*),
+        product_images (*)
+      `)
+      .eq("status", "published");
+  }
 
   if (options?.featured) query = query.eq("is_featured", true);
-  if (options?.newArrival) query = query.eq("is_new_arrival", true);
-  if (options?.bestSeller) query = query.eq("is_best_seller", true);
-  if (options?.limit) query = query.limit(options.limit);
+  if (options?.newArrival || options?.categorySlug === "new-arrivals") {
+    query = query.eq("is_new_arrival", true);
+  }
+  if (options?.bestSeller || options?.categorySlug === "best-sellers") {
+    query = query.eq("is_best_seller", true);
+  }
+
+  query = query.order("created_at", { ascending: false });
 
   const { data, error } = await query;
   if (error) console.error("getPublishedProducts error:", error);
-  const products = (data as Product[]) || [];
-  return products.filter((product) => {
+  let products = (data as Product[]) || [];
+
+  products = products.filter((product) => {
     if (product.show_on_storefront === false) return false;
     if (product.show_on_storefront === true || product.show_on_storefront == null) return true;
 
@@ -47,10 +111,92 @@ export async function getPublishedProducts(options?: {
     if (hasVisibleVariant) return true;
     return Boolean(product.primary_image_url || product.product_images?.length);
   });
+
+  // Size filtering
+  if (options?.size) {
+    const s = options.size.trim().toLowerCase();
+    products = products.filter((product) => {
+      const variants = product.product_variants ?? [];
+      if (variants.length === 0) {
+        if (
+          s === "oversized" &&
+          (product.name.toLowerCase().includes("oversized") ||
+            product.fit?.toLowerCase().includes("oversized"))
+        ) {
+          return true;
+        }
+        return false;
+      }
+      return variants.some((v) => {
+        const vSize = (v.size || "").trim().toLowerCase();
+        if (s === "oversized") {
+          return (
+            vSize.includes("oversized") ||
+            product.name.toLowerCase().includes("oversized")
+          );
+        }
+        return (
+          vSize === s ||
+          vSize.startsWith(s + " ") ||
+          vSize.endsWith(" " + s)
+        );
+      });
+    });
+  }
+
+  // Sorting
+  if (options?.sortBy) {
+    switch (options.sortBy) {
+      case "price_asc":
+        products.sort(
+          (a, b) =>
+            (Number(a.sale_price ?? a.price) || 0) -
+            (Number(b.sale_price ?? b.price) || 0)
+        );
+        break;
+      case "price_desc":
+        products.sort(
+          (a, b) =>
+            (Number(b.sale_price ?? b.price) || 0) -
+            (Number(a.sale_price ?? a.price) || 0)
+        );
+        break;
+      case "newest":
+        products.sort(
+          (a, b) =>
+            new Date(b.created_at).getTime() -
+            new Date(a.created_at).getTime()
+        );
+        break;
+      case "best_selling":
+        products.sort(
+          (a, b) =>
+            (b.is_best_seller ? 1 : 0) - (a.is_best_seller ? 1 : 0) ||
+            new Date(b.created_at).getTime() -
+              new Date(a.created_at).getTime()
+        );
+        break;
+      case "featured":
+      default:
+        products.sort(
+          (a, b) =>
+            (b.is_featured ? 1 : 0) - (a.is_featured ? 1 : 0) ||
+            new Date(b.created_at).getTime() -
+              new Date(a.created_at).getTime()
+        );
+        break;
+    }
+  }
+
+  if (options?.limit && products.length > options.limit) {
+    products = products.slice(0, options.limit);
+  }
+
+  return products;
 }
 
 export async function getProductBySlug(slug: string): Promise<Product | null> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("products")
     .select(`

@@ -42,10 +42,15 @@ export default async function ShopPage({
   searchParams: Promise<{ [key: string]: string | undefined }>;
 }) {
   const params = await searchParams;
+  const sort = params?.sort;
+  const size = params?.size;
+
   const [products, categories] = await Promise.all([
-    getPublishedProducts({ limit: 48 }),
+    getPublishedProducts({ limit: 48, sortBy: sort, size }),
     getActiveCategories(),
   ]);
+
+  const hasActiveFilter = Boolean(size || (sort && sort !== "featured"));
 
   return (
     <div className="container-luxury py-6 md:py-12">
@@ -73,26 +78,43 @@ export default async function ShopPage({
         </h1>
         <p className="text-xs text-charcoal/50 mt-1 uppercase tracking-wider font-medium">
           {products.length === 0
-            ? "Upcoming Seasonal Drop"
+            ? hasActiveFilter
+              ? "0 Pieces Matched"
+              : "Upcoming Seasonal Drop"
             : `${products.length} ${products.length === 1 ? "Piece" : "Pieces"} Available`}
         </p>
       </div>
 
       {/* Mobile Filter Bar & Popup Trigger */}
       <div className="md:hidden">
-        <ShopFilters categories={categories} totalProducts={products.length} />
+        <ShopFilters
+          categories={categories}
+          totalProducts={products.length}
+          currentSort={sort}
+          currentSize={size}
+        />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-5 gap-8 lg:gap-12 items-start">
         {/* Desktop Filters Sidebar (Hidden on mobile) */}
         <aside className="hidden md:block md:col-span-1 border-r border-[#D8C8AF30] md:pr-6">
-          <ShopFilters categories={categories} totalProducts={products.length} />
+          <ShopFilters
+            categories={categories}
+            totalProducts={products.length}
+            currentSort={sort}
+            currentSize={size}
+          />
         </aside>
 
         {/* Product Grid (Takes full width on mobile, 3-4 cols on desktop) */}
         <div className="col-span-1 md:col-span-3 lg:col-span-4">
           <Suspense fallback={<ProductGridSkeleton />}>
-            <ProductGrid products={products} columns={3} />
+            <ProductGrid
+              products={products}
+              columns={3}
+              hasActiveFilter={hasActiveFilter}
+              clearFiltersHref="/shop"
+            />
           </Suspense>
         </div>
       </div>
